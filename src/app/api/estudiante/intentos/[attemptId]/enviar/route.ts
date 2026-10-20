@@ -36,7 +36,7 @@ export async function POST(
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    if (attempt.status !== 'EN_CURSO' && attempt.status !== 'EXPIRADO') {
+    if (attempt.status !== 'EN_CURSO') {
       return NextResponse.json({ error: 'El intento ya fue enviado o finalizado' }, { status: 400 });
     }
 

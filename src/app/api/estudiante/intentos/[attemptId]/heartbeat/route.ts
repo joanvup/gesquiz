@@ -29,6 +29,8 @@ export async function POST(
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
+    // SessionTokenHash es @unique y NOT NULL, el check `=== null`
+    // nunca se cumple. Si por alguna razón llega null, lo inicializamos.
     if (attempt.sessionTokenHash === null) {
       await db.attempt.update({
         where: { id: attemptId },

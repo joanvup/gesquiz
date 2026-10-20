@@ -43,6 +43,8 @@ export async function POST(
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
+    // Session token: la columna es NOT NULL @unique, por lo que el check
+    // `=== null` nunca es verdadero. Si por alguna razón llega null, lo inicializamos.
     if (attempt.sessionTokenHash === null) {
       await db.attempt.update({
         where: { id: attemptId },
@@ -62,8 +64,20 @@ export async function POST(
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
 
-    const newInfractionsCount = attempt.infractions + 1;
-    const maxInfracciones = attempt.quiz.maxInfracciones;
+    // Incremento atómico de infracciones + relectura del valor real
+    await db.attempt.update({
+      where: { id: attemptId },
+      data: { infractions: { increment: 1 } },
+    });
+    const reReadAttempt = await db.attempt.findUnique({
+      where: { id: attemptId },
+      include: { quiz: true },
+    });
+    if (!reReadAttempt) {
+      return NextResponse.json({ error: 'Intento no encontrado' }, { status: 404 });
+    }
+    const newInfractionsCount = reReadAttempt.infractions;
+    const maxInfracciones = reReadAttempt.quiz.maxInfracciones;
 
     await db.auditEvent.create({
       data: {
