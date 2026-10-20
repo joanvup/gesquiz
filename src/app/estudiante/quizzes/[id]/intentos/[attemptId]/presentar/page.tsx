@@ -5,7 +5,8 @@ import { useState, useEffect, use, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { gradeToPercentage } from "@/lib/scoring";
+import { gradeToPercentage, getCsrfToken } from "@/lib/csrf";
+import { cookies } from "next/headers";
 
 interface Option {
   id: string;
@@ -81,6 +82,7 @@ function PresentarQuizContent({
   const [targetIndexToNavigate, setTargetIndexToNavigate] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resultsData, setResultsData] = useState<AttemptData | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string>("");
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [attemptSessionToken, setAttemptSessionToken] = useState<string>("");
@@ -90,6 +92,14 @@ function PresentarQuizContent({
   const [infractionMessage, setInfractionMessage] = useState("");
   const fullscreenRequested = useRef(false);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Cargar token CSRF de la cookie al montar el componente
+    (async () => {
+      const token = await getCsrfToken();
+      setCsrfToken(token);
+    })();
+  }, []);
 
   // Generar/persistir token de sesión para el intento
   useEffect(() => {
@@ -116,6 +126,7 @@ function PresentarQuizContent({
         headers: {
           'Content-Type': 'application/json',
           'x-attempt-session': attemptSessionToken,
+          'X-CSRF-TOKEN': csrfToken,
         },
         body: JSON.stringify({ tipo, detalle }),
       });
@@ -222,29 +233,32 @@ function PresentarQuizContent({
 
     sendHeartbeat(); // Envío inmediato al iniciar
 
-    heartbeatIntervalRef.current = setInterval(() => {
-      sendHeartbeat();
-    }, 30000); // Cada 30 segundos
-
-    return () => {
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
-    };
-  }, [attempt, attemptId, attemptSessionToken]);
-
-  async function sendHeartbeat() {
+    // Heartbeat: envío inmediato + intervalo, con header CSRF
+  const sendHeartbeat = async () => {
     try {
       await fetch(`/api/estudiante/intentos/${attemptId}/heartbeat`, {
         method: 'POST',
         headers: {
           'x-attempt-session': attemptSessionToken,
+          'X-CSRF-TOKEN': csrfToken,
         },
       });
     } catch (error) {
       console.error('Error en heartbeat:', error);
     }
-  }
+  };
+
+  sendHeartbeat(); // Envío inmediato al iniciar
+  heartbeatIntervalRef.current = setInterval(() => {
+    sendHeartbeat();
+  }, 30000); // Cada 30 segundos
+
+  return () => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+  };
+}, [attempt, attemptId, attemptSessionToken, csrfToken]);
 
   const initializeAnswerState = (q: Question, ans: AnswerData | null) => {
     setSelectedOptions([]);

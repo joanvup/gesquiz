@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { verifyCsrf } from '@/lib/csrf';
 import { gradeQuestion, gradeToPercentage } from '@/lib/scoring';
 
 export async function POST(
@@ -11,6 +12,13 @@ export async function POST(
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    // Verificación CSRF: el token debe venir en el header X-CSRF-TOKEN
+    // y coincidir con la cookie csrf (generada al login)
+    const csrfValid = await verifyCsrf(request);
+    if (!csrfValid) {
+      return NextResponse.json({ error: 'Token CSRF inválido' }, { status: 403 });
     }
 
     const { attemptId } = await params;

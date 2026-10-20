@@ -51,70 +51,86 @@ export async function POST(
       orderBy: { numeroAttempt: 'desc' },
     });
 
-    const activeAttempt = existingAttempts.find(a => a.status === 'EN_CURSO');
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
 
-    if (activeAttempt) {
-      if (activeAttempt.expiresAt && new Date(activeAttempt.expiresAt) < now) {
-        await db.attempt.update({
-          where: { id: activeAttempt.id },
-          data: { status: 'EXPIRADO' },
+    // Usar transacción para validar límite de intentos y crear el intento de forma atómica,
+    // evitando race conditions donde POSTs concurrentes podrían ambos pasar el filtro de límite.
+    const result = await db.$transaction(async tx => {
+      // Re-contar intentos activos dentro de la transacción (isolation previene carreras)
+      const activeAttempts = await tx.attempt.findMany({
+        where: { quizId, studentId: user.id, status: 'EN_CURSO' },
+      });
+
+      if (activeAttempts.length > 0) {
+        // Si ya hay un intento en curso, verificar si expiró
+        const now = new Date();
+        const active = activeAttempts.find(a => {
+          if (a.expiresAt && new Date(a.expiresAt) < now) return true;
+          return false;
         });
-      } else {
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-        const sessionTokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
-
-        const updatedAttempt = await db.attempt.update({
-          where: { id: activeAttempt.id },
-          data: { sessionTokenHash },
-        });
-
-        return NextResponse.json({ success: true, attempt: updatedAttempt, sessionToken, resumed: true });
+        if (active) {
+          // Marcar como expirado dentro de la transacción
+          await tx.attempt.update({
+            where: { id: active.id },
+            data: { status: 'EXPIRADO' },
+          });
+        }
       }
-    }
 
-    const validAttemptsCount = existingAttempts.filter(a => a.status !== 'ANULADO').length;
-    if (validAttemptsCount >= quiz.intentosPermitidos && user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Número máximo de intentos alcanzados' }, { status: 400 });
-    }
+      // Contar todos los intentos no anulados dentro de la transacción
+      const allAttempts = await tx.attempt.findMany({
+        where: { quizId, studentId: user.id, status: { notIn: ['ANULADO'] } },
+      });
 
-    const seed = crypto.randomBytes(16).toString('hex');
-    const sessionToken = crypto.randomBytes(32).toString('hex');
-    const sessionTokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+      const validAttemptsCount = allAttempts.length;
 
-    let questionIds = quiz.questions.map(q => q.id);
-    if (quiz.ordenAleatorioPreguntas) {
-      questionIds = shuffleArray(questionIds, seed);
-    }
-
-    const optionOrders: Record<string, string[]> = {};
-    for (const q of quiz.questions) {
-      let optIds = q.options.map(o => o.id);
-      if (quiz.ordenAleatorioOpciones) {
-        optIds = shuffleArray(optIds, seed + q.id);
+      if (validAttemptsCount >= quiz.intentosPermitidos && user.role !== 'ADMIN') {
+        throw new Error('Número máximo de intentos alcanzados');
       }
-      optionOrders[q.id] = optIds;
-    }
 
-    const expiresAt = quiz.tiempoLimiteMinutos
-      ? new Date(Date.now() + quiz.tiempoLimiteMinutos * 60 * 1000)
-      : null;
+      // Generar seed y token de sesión
+      const seed = crypto.randomBytes(16).toString('hex');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+      const sessionTokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
 
-    const newAttempt = await db.attempt.create({
-      data: {
-        quizId,
-        studentId: user.id,
-        numeroAttempt: validAttemptsCount + 1,
-        status: 'EN_CURSO',
-        seed,
-        sessionTokenHash,
-        expiresAt,
-        questionOrderJson: JSON.stringify(questionIds),
-        optionOrderJson: JSON.stringify(optionOrders),
-        currentQuestionIndex: 0,
-      },
+      let questionIds = quiz.questions.map(q => q.id);
+      if (quiz.ordenAleatorioPreguntas) {
+        questionIds = shuffleArray(questionIds, seed);
+      }
+
+      const optionOrders: Record<string, string[]> = {};
+      for (const q of quiz.questions) {
+        let optIds = q.options.map(o => o.id);
+        if (quiz.ordenAleatorioOpciones) {
+          optIds = shuffleArray(optIds, seed + q.id);
+        }
+        optionOrders[q.id] = optIds;
+      }
+
+      const expiresAt = quiz.tiempoLimiteMinutos
+        ? new Date(Date.now() + quiz.tiempoLimiteMinutos * 60 * 1000)
+        : null;
+
+      const newAttempt = await tx.attempt.create({
+        data: {
+          quizId,
+          studentId: user.id,
+          numeroAttempt: validAttemptsCount + 1,
+          status: 'EN_CURSO',
+          seed,
+          sessionTokenHash,
+          expiresAt,
+          questionOrderJson: JSON.stringify(questionIds),
+          optionOrderJson: JSON.stringify(optionOrders),
+          currentQuestionIndex: 0,
+        },
+      });
+
+      return { newAttempt, sessionToken, validAttemptsCount };
     });
+
+    const { newAttempt, sessionToken, validAttemptsCount } = result;
 
     await db.auditEvent.create({
       data: {
