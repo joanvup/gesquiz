@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Obtener token CSRF desde document.cookie (la cookie 'csrf' tiene httpOnly: false)
+const getCsrfTokenFromCookie = () => {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|; )csrf=([^;]*)/);
+  return match ? match[1] : "";
+};
+
 export function StartQuizButton({ quizId }: { quizId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -12,6 +19,9 @@ export function StartQuizButton({ quizId }: { quizId: string }) {
     try {
       const res = await fetch(`/api/estudiante/quizzes/${quizId}/intentos`, {
         method: "POST",
+        headers: {
+          'X-CSRF-TOKEN': getCsrfTokenFromCookie(),
+        },
       });
       const data = await res.json();
       if (data.success && data.attempt) {

@@ -5,8 +5,14 @@ import { useState, useEffect, use, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { gradeToPercentage, getCsrfToken } from "@/lib/csrf";
-import { cookies } from "next/headers";
+import { gradeToPercentage } from "@/lib/scoring";
+
+// Obtener token CSRF desde document.cookie (la cookie 'csrf' tiene httpOnly: false)
+const getCsrfTokenFromCookie = () => {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|; )csrf=([^;]*)/);
+  return match ? match[1] : "";
+};
 
 interface Option {
   id: string;
@@ -94,11 +100,9 @@ function PresentarQuizContent({
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Cargar token CSRF de la cookie al montar el componente
-    (async () => {
-      const token = await getCsrfToken();
-      setCsrfToken(token);
-    })();
+    // Cargar token CSRF desde document.cookie al montar el componente
+    const token = getCsrfTokenFromCookie();
+    setCsrfToken(token);
   }, []);
 
   // Generar/persistir token de sesión para el intento
@@ -231,34 +235,32 @@ function PresentarQuizContent({
   useEffect(() => {
     if (!attempt || attempt.status !== 'EN_CURSO') return;
 
-    sendHeartbeat(); // Envío inmediato al iniciar
-
     // Heartbeat: envío inmediato + intervalo, con header CSRF
-  const sendHeartbeat = async () => {
-    try {
-      await fetch(`/api/estudiante/intentos/${attemptId}/heartbeat`, {
-        method: 'POST',
-        headers: {
-          'x-attempt-session': attemptSessionToken,
-          'X-CSRF-TOKEN': csrfToken,
-        },
-      });
-    } catch (error) {
-      console.error('Error en heartbeat:', error);
-    }
-  };
+    const sendHeartbeat = async () => {
+      try {
+        await fetch(`/api/estudiante/intentos/${attemptId}/heartbeat`, {
+          method: 'POST',
+          headers: {
+            'x-attempt-session': attemptSessionToken,
+            'X-CSRF-TOKEN': csrfToken,
+          },
+        });
+      } catch (error) {
+        console.error('Error en heartbeat:', error);
+      }
+    };
 
-  sendHeartbeat(); // Envío inmediato al iniciar
-  heartbeatIntervalRef.current = setInterval(() => {
-    sendHeartbeat();
-  }, 30000); // Cada 30 segundos
+    sendHeartbeat(); // Envío inmediato al iniciar
+    heartbeatIntervalRef.current = setInterval(() => {
+      sendHeartbeat();
+    }, 30000); // Cada 30 segundos
 
-  return () => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-  };
-}, [attempt, attemptId, attemptSessionToken, csrfToken]);
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [attempt, attemptId, attemptSessionToken, csrfToken]);
 
   const initializeAnswerState = (q: Question, ans: AnswerData | null) => {
     setSelectedOptions([]);
