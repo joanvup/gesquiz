@@ -5,8 +5,12 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("session")?.value;
 
-  // Proteger rutas de docente y estudiante
-  if (pathname.startsWith("/docente") || pathname.startsWith("/estudiante")) {
+  // Proteger rutas de docente, estudiante y admin
+  if (
+    pathname.startsWith("/docente") ||
+    pathname.startsWith("/estudiante") ||
+    pathname.startsWith("/admin")
+  ) {
     if (!sessionCookie) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("from", pathname);
@@ -19,5 +23,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/docente/:path*", "/estudiante/:path*", "/login"],
+  matcher: ["/docente/:path*", "/estudiante/:path*", "/admin/:path*", "/login"],
 };
