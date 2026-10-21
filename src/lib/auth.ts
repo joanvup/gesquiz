@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { db } from "@/lib/db";
 
 export function hashToken(token: string): string {
@@ -64,6 +65,13 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function getSessionUser() {
   try {
+    // La lectura de la sesion depende de la cookie del request, asi que la
+    // resolucion debe ocurrir en runtime, nunca durante el prerender.
+    // Sin este await, el `new Date()` de mas abajo se evalua en el stage
+    // estatico y Next.js aborta el render con
+    // "Next.js encountered the unstable value `new Date()` while prerendering".
+    await connection();
+
     const cookieStore = await cookies();
     const token = cookieStore.get("session")?.value;
     if (!token) return null;
