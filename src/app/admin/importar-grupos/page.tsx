@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Download } from 'lucide-react';
+import { Alert, Button, Card, DataTable, Field, PageHeader, StatCard } from '@/components/ui';
 
 interface GrupoErrorItem {
   fila: number;
@@ -65,102 +67,85 @@ export default function ImportarGruposPage() {
   }
 
   return (
-    <div className='flex-1 p-8 max-w-4xl mx-auto w-full'>
-      <div className='mb-6 flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>Importar Grupos y Estudiantes desde Excel</h1>
-        <Link href='/admin' className='text-sm text-indigo-600 hover:underline'>
-          ← Volver al panel
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title="Importar Grupos y Estudiantes desde Excel"
+        breadcrumbs={
+          <Link href='/admin' className='text-plum/60 transition-colors hover:text-plum'>
+            ← Volver al panel
+          </Link>
+        }
+      />
 
       {error && (
-        <div className='mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm'>
+        <Alert tone="error" className="mb-6">
           {error}
-        </div>
+        </Alert>
       )}
 
-      <div className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8 space-y-4'>
-        <div className='bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-indigo-900 space-y-2'>
-          <p className='font-semibold'>Instrucciones:</p>
-          <p>Sube un archivo Excel (.xlsx) con columnas: <code className='bg-white px-1.5 py-0.5 rounded border border-indigo-200'>Grupo</code>, <code className='bg-white px-1.5 py-0.5 rounded border border-indigo-200'>Email</code>, y opcionalmente <code className='bg-white px-1.5 py-0.5 rounded border border-indigo-200'>Nombre</code> (para autorregistro de estudiantes nuevos).</p>
-          <div>
-            <a
-              href='/plantillas/plantilla-grupos.xlsx'
-              download
-              className='inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition mt-2'
-            >
-              Descargar Plantilla Excel (.xlsx)
-            </a>
-          </div>
-        </div>
+      <Card className="mb-8 space-y-4 p-8">
+        <Alert tone="info" title="Instrucciones:">
+          <p>
+            Sube un archivo Excel (.xlsx) con columnas:{' '}
+            <code className='rounded-chip border border-lavender-200 bg-white px-1.5 py-0.5'>Grupo</code>,{' '}
+            <code className='rounded-chip border border-lavender-200 bg-white px-1.5 py-0.5'>Email</code>, y opcionalmente{' '}
+            <code className='rounded-chip border border-lavender-200 bg-white px-1.5 py-0.5'>Nombre</code> (para autorregistro de estudiantes nuevos).
+          </p>
+          <a
+            href='/plantillas/plantilla-grupos.xlsx'
+            download
+            className='mt-3 inline-flex items-center gap-2 rounded-btn border border-line-strong px-4 py-2 text-xs font-semibold text-plum transition-colors hover:bg-plum/5'
+          >
+            <Download size={14} strokeWidth={2} aria-hidden />
+            Descargar Plantilla Excel (.xlsx)
+          </a>
+        </Alert>
 
         <form onSubmit={handleImport} className='space-y-4 pt-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-2'>
-              Seleccionar archivo Excel (.xlsx, max 10MB)
-            </label>
+          <Field label='Seleccionar archivo Excel (.xlsx, max 10MB)'>
             <input
               type='file'
               accept='.xlsx'
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className='w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+              className='w-full text-sm text-plum/70 file:mr-4 file:rounded-btn file:border-0 file:bg-magenta-soft file:px-4 file:py-2 file:text-sm file:font-semibold file:text-magenta-dark hover:file:bg-peach-100'
             />
-          </div>
-          <button
-            type='submit'
-            disabled={loading || !file}
-            className='px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50'
-          >
+          </Field>
+          <Button type='submit' disabled={loading || !file}>
             {loading ? 'Importando...' : 'Importar Grupos'}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
 
       {result && (
-        <div className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6'>
-          <div className='border-b border-slate-100 pb-4'>
-            <h3 className='text-lg font-bold text-slate-800'>Resultado de Importacion</h3>
+        <Card className='space-y-6 p-8'>
+          <div className='border-b border-line pb-4'>
+            <h3 className='text-lg font-bold text-plum'>Resultado de Importacion</h3>
           </div>
 
-          <div className='grid grid-cols-3 gap-4 text-center'>
-            <div className='p-4 bg-slate-50 rounded-lg'>
-              <div className='text-2xl font-bold text-indigo-600'>{result.gruposCreados}</div>
-              <div className='text-xs text-slate-500 font-medium'>Grupos Creados</div>
-            </div>
-            <div className='p-4 bg-slate-50 rounded-lg'>
-              <div className='text-2xl font-bold text-blue-600'>{result.miembrosVinculados}</div>
-              <div className='text-xs text-slate-500 font-medium'>Miembros Vinculados</div>
-            </div>
-            <div className='p-4 bg-slate-50 rounded-lg'>
-              <div className='text-2xl font-bold text-emerald-600'>{result.estudiantesCreados}</div>
-              <div className='text-xs text-slate-500 font-medium'>Estudiantes Creados</div>
-            </div>
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-3'>
+            <StatCard label='Grupos Creados' value={result.gruposCreados} tone='magenta' />
+            <StatCard label='Miembros Vinculados' value={result.miembrosVinculados} tone='aqua' />
+            <StatCard label='Estudiantes Creados' value={result.estudiantesCreados} tone='lavender' />
           </div>
 
           {result.errores && result.errores.length > 0 && (
             <div>
-              <h4 className='text-sm font-semibold text-slate-700 mb-2'>Detalle de Errores ({result.errores.length}):</h4>
-              <div className='border border-slate-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto'>
-                <table className='w-full text-left border-collapse text-xs'>
-                  <thead className='bg-slate-50 border-b border-slate-200 text-slate-600'>
-                    <tr>
-                      <th className='p-3 w-20'>Fila</th>
-                      <th className='p-3'>Mensaje</th>
+              <h4 className='mb-2 text-sm font-semibold text-plum'>
+                Detalle de Errores ({result.errores.length}):
+              </h4>
+              <div className='max-h-96 overflow-y-auto rounded-card border border-line'>
+                <DataTable head={['Fila', 'Mensaje']}>
+                  {result.errores.map((err, idx) => (
+                    <tr key={idx} className='transition-colors hover:bg-cream/60'>
+                      <td className='px-4 py-3 font-medium text-plum'>Fila {err.fila}</td>
+                      <td className='px-4 py-3 text-orange-800'>{err.mensaje}</td>
                     </tr>
-                  </thead>
-                  <tbody className='divide-y divide-slate-100'>
-                    {result.errores.map((err, idx) => (
-                      <tr key={idx} className='hover:bg-slate-50'>
-                        <td className='p-3 font-medium text-slate-800'>Fila {err.fila}</td>
-                        <td className='p-3 text-red-600'>{err.mensaje}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </DataTable>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

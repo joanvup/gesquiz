@@ -5,8 +5,18 @@ import { useState, useEffect, use, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { CheckCircle2, Lock, Monitor, TriangleAlert, Clock } from "lucide-react";
 import { gradeToPercentage } from "@/lib/scoring";
 import { getCsrfTokenFromCookie } from "@/lib/csrf-client";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Input,
+  Select,
+  Textarea,
+} from "@/components/ui";
 
 interface Option {
   id: string;
@@ -343,6 +353,7 @@ function PresentarQuizContent({
     }
 
     const entries = Array.from(pendingAnswersRef.current.entries());
+    let flushedAny = false;
     for (const [questionId, pending] of entries) {
       try {
         await sendAnswer(questionId, pending.respuestaJson, pending.respuestaTexto);
@@ -350,9 +361,18 @@ function PresentarQuizContent({
         setAnsweredQuestionIds(prev =>
           prev.includes(questionId) ? prev : [...prev, questionId]
         );
+        flushedAny = true;
       } catch {
         // Se mantiene pendiente: no se descarta la respuesta del estudiante.
       }
+    }
+
+    // El flush cancela el debounce de triggerSave antes de que este marque
+    // "guardado": aqui reflejamos el estado real para no dejar el badge
+    // clavado en "Guardando...".
+    if (flushedAny) {
+      setSavingStatus("guardado");
+      setTimeout(() => setSavingStatus(""), 2000);
     }
   }, [sendAnswer]);
 
@@ -433,7 +453,7 @@ function PresentarQuizContent({
         setLoading(false);
       }
     },
-    [attemptId, router, flushPendingAnswers]
+    [attemptId, router, flushPendingAnswers, requestFullscreen]
   );
 
   const handleAutoSubmitDueToExpiration = useCallback(async () => {
@@ -449,9 +469,18 @@ function PresentarQuizContent({
     }
   }, [attemptId, router]);
 
+  // Cargar la primera pregunta solo al montar o al cambiar de intento.
+  // `loadAttemptAndQuestion` cambia de identidad en cada render (depende de
+  // `attempt`, que se regenera con cada carga): usarlo aqui como dependencia
+  // provocaba un bucle infinito de refetch (heartbeats y GETs sin fin).
+  const loadAttemptRef = useRef(loadAttemptAndQuestion);
   useEffect(() => {
-    loadAttemptAndQuestion(0);
+    loadAttemptRef.current = loadAttemptAndQuestion;
   }, [loadAttemptAndQuestion]);
+  useEffect(() => {
+    loadAttemptRef.current(0);
+    // Solo al montar / cambiar de intento: ver comentario sobre el ref.
+  }, [attemptId]);
 
   useEffect(() => {
     if (!attempt?.expiresAt) return;
@@ -587,7 +616,7 @@ function PresentarQuizContent({
 
   if (loading) {
     return (
-      <div className="flex-1 p-12 text-center text-slate-500">
+      <div className="flex-1 py-12 text-center text-muted">
         Cargando evaluación...
       </div>
     );
@@ -598,68 +627,75 @@ function PresentarQuizContent({
     const showScore = data?.quiz?.mostrarResultado === "NOTA" || data?.score !== undefined || data?.quiz?.mostrarResultado === "NOTA_Y_RESPUESTAS";
 
     return (
-      <div className="flex-1 p-8 max-w-3xl mx-auto w-full">
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center space-y-6">
-          <div className="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-            ✓
+      <div className="mx-auto w-full max-w-3xl">
+        <Card className="space-y-6 p-8 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-aqua-100 text-aqua-500">
+            <CheckCircle2 size={30} strokeWidth={2} aria-hidden />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Evaluación Finalizada</h1>
-          <p className="text-slate-600">Tu intento ha sido registrado y procesado correctamente.</p>
+          <h1 className="text-2xl font-bold text-plum">Evaluación Finalizada</h1>
+          <p className="text-plum/70">
+            Tu intento ha sido registrado y procesado correctamente.
+          </p>
 
           {showScore ? (
-            <div className="p-6 bg-slate-50 rounded-xl inline-block">
-              <span className="text-sm text-slate-500 block mb-1">Calificación Obtenida</span>
-              <span className="text-4xl font-extrabold text-indigo-600">
+            <div className="inline-block rounded-card bg-cream p-6">
+              <span className="mb-1 block text-sm text-muted">Calificación Obtenida</span>
+              <span className="block text-4xl font-extrabold text-magenta">
                 {gradeToPercentage(data?.score ?? attempt?.score ?? 0, data?.quiz?.puntajeMaximo ?? attempt?.quiz?.puntajeMaximo)}
               </span>
-              <span className="text-sm text-slate-500 block mt-1">sobre 100</span>
+              <span className="mt-1 block text-sm text-muted">sobre 100</span>
             </div>
           ) : (
-            <p className="text-sm text-slate-500">Las calificaciones se publicarán próximamente.</p>
+            <p className="text-sm text-muted">
+              Las calificaciones se publicarán próximamente.
+            </p>
           )}
 
-          <div className="pt-6 border-t border-slate-100 flex justify-center">
+          <div className="flex justify-center border-t border-line pt-6">
             <Link
               href="/estudiante"
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition"
+              className="inline-flex items-center justify-center rounded-btn bg-magenta px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-magenta-hover"
             >
               Volver al Panel
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   if (showConfirmSubmit) {
     return (
-      <div className="flex-1 p-8 max-w-3xl mx-auto w-full">
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6">
-          <h1 className="text-2xl font-bold text-slate-800">Confirmar Envío de Evaluación</h1>
-          <p className="text-slate-600 text-sm">
-            Estás a punto de finalizar tu intento. Una vez enviado, no podrás modificar tus respuestas.
+      <div className="mx-auto w-full max-w-3xl">
+        <Card className="space-y-6 p-8">
+          <h1 className="text-2xl font-bold text-plum">
+            Confirmar Envío de Evaluación
+          </h1>
+          <p className="text-sm text-plum/70">
+            Estás a punto de finalizar tu intento. Una vez enviado, no podrás
+            modificar tus respuestas.
           </p>
 
-          <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm">
+          <Alert tone="warning">
             Asegúrate de haber respondido todas las preguntas antes de confirmar.
-          </div>
+          </Alert>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <button
+          <div className="flex justify-end gap-3 border-t border-line pt-4">
+            <Button
+              variant="secondary"
               onClick={() => setShowConfirmSubmit(false)}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
             >
               Volver al Quiz
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plum"
               onClick={handleFinalSubmit}
               disabled={submitting}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
             >
               {submitting ? "Enviando..." : "Confirmar y Enviar Intento"}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -672,16 +708,19 @@ function PresentarQuizContent({
   const isMultiChoice =
     question.tipo === "MULTICHOICE" && question.respuestaUnica === false;
 
+  const progressPct =
+    totalQuestions > 0 ? Math.round(((currentIndex + 1) / totalQuestions) * 100) : 0;
+
   return (
-    <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+    <div className="mx-auto w-full max-w-6xl">
       {/* Modal de advertencia de infracción */}
       {showInfractionWarning && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
-          <div className="bg-red-600 text-white p-4 rounded-xl shadow-2xl border-2 border-red-700 animate-pulse">
+        <div className="fixed left-1/2 top-4 z-50 mx-4 w-full max-w-md -translate-x-1/2">
+          <div className="rounded-card border-2 border-orange-800 bg-orange-800 p-4 text-white shadow-2xl animate-pulse">
             <div className="flex items-start gap-3">
-              <span className="text-2xl">⚠️</span>
+              <TriangleAlert size={22} strokeWidth={2} aria-hidden className="shrink-0" />
               <div className="flex-1">
-                <h3 className="font-bold text-sm mb-1">¡Infracción Detectada!</h3>
+                <h3 className="mb-1 text-sm font-bold">¡Infracción Detectada!</h3>
                 <p className="text-xs">{infractionMessage}</p>
               </div>
             </div>
@@ -691,70 +730,93 @@ function PresentarQuizContent({
 
       {/* Indicador de modo seguro */}
       {attempt.quiz.modoSeguro && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-yellow-200 bg-yellow-100 p-3">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🔒</span>
+            <Lock size={18} strokeWidth={2} aria-hidden className="text-yellow-600" />
             <div>
-              <span className="text-xs font-semibold text-amber-900">Modo Seguro Activo</span>
-              <p className="text-[10px] text-amber-700">No cambies de ventana ni salgas de pantalla completa</p>
+              <span className="text-xs font-semibold text-yellow-600">
+                Modo Seguro Activo
+              </span>
+              <p className="text-[10px] text-yellow-600/80">
+                No cambies de ventana ni salgas de pantalla completa
+              </p>
             </div>
           </div>
-          <div className="px-3 py-1 bg-amber-100 rounded-lg">
-            <span className="text-xs font-bold text-amber-900">
-              Infracciones: {infractions}/{attempt.quiz.maxInfracciones}
-            </span>
+          <div className="flex items-center gap-2">
+            <Badge tone={isFullscreen ? "success" : "danger"} className="gap-1.5">
+              <Monitor size={12} strokeWidth={2} aria-hidden />
+              {isFullscreen ? "Pantalla completa" : "Sin pantalla completa"}
+            </Badge>
+            <div className="rounded-chip bg-yellow-200 px-3 py-1">
+              <span className="text-xs font-bold text-yellow-600">
+                Infracciones: {infractions}/{attempt.quiz.maxInfracciones}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-white p-4 shadow-card">
         <div>
-          <h1 className="font-bold text-slate-800 text-lg">{attempt.quiz.titulo}</h1>
-          <span className="text-xs text-slate-500">
+          <h1 className="text-lg font-bold text-plum">{attempt.quiz.titulo}</h1>
+          <span className="text-xs text-muted">
             Pregunta {currentIndex + 1} de {totalQuestions}
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {savingStatus && (
-            <span
-              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+            <Badge
+              tone={
                 savingStatus === "guardado"
-                  ? "bg-green-100 text-green-800"
+                  ? "success"
                   : savingStatus === "guardando"
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-red-100 text-red-800"
-              }`}
+                    ? "warning"
+                    : "danger"
+              }
             >
               {savingStatus === "guardado"
                 ? "Guardado"
                 : savingStatus === "guardando"
                 ? "Guardando..."
                 : "Error al guardar"}
-            </span>
+            </Badge>
           )}
 
           {timeLeft !== null && (
-            <div className="px-3 py-1 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-semibold">
+            <Badge tone="danger" className="gap-1.5">
+              <Clock size={12} strokeWidth={2} aria-hidden />
               Tiempo: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
-            </div>
+            </Badge>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3 bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-              {question.tipo}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">
+      {/* Barra de progreso */}
+      <div
+        className="mb-6 h-2 w-full overflow-hidden rounded-full bg-cream"
+        role="progressbar"
+        aria-valuenow={progressPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="h-full rounded-full bg-linear-to-r from-magenta to-plum transition-[width] duration-300"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <Card className="space-y-6 p-8 lg:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
+            <Badge tone="lavender">{question.tipo}</Badge>
+            <span className="text-xs font-medium text-muted">
               Valor: {question.defaultGrade} pts
             </span>
           </div>
 
           <div
-            className="prose text-slate-800 text-base"
+            className="moodle-content text-base"
             dangerouslySetInnerHTML={{ __html: question.enunciadoHtml }}
           />
 
@@ -766,10 +828,10 @@ function PresentarQuizContent({
                   return (
                     <label
                       key={opt.id}
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition cursor-pointer ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-card border p-3.5 transition-colors ${
                         checked
-                          ? "border-indigo-600 bg-indigo-50/50"
-                          : "border-slate-200 hover:bg-slate-50"
+                          ? "border-magenta bg-magenta/5"
+                          : "border-line bg-white hover:border-line-strong hover:bg-cream/50"
                       }`}
                     >
                       <input
@@ -777,10 +839,10 @@ function PresentarQuizContent({
                         name={`question-${question.id}`}
                         checked={checked}
                         onChange={() => handleOptionChange(opt.id, isMultiChoice)}
-                        className="text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                        className="h-4 w-4 shrink-0 accent-magenta"
                       />
                       <span
-                        className="text-sm text-slate-700"
+                        className="text-sm text-plum"
                         dangerouslySetInnerHTML={{ __html: opt.textoHtml }}
                       />
                     </label>
@@ -791,24 +853,22 @@ function PresentarQuizContent({
 
             {(question.tipo === "SHORTANSWER" || question.tipo === "NUMERICAL") && (
               <div>
-                <input
+                <Input
                   type={question.tipo === "NUMERICAL" ? "number" : "text"}
                   value={textValue}
                   onChange={(e) => handleTextChange(e.target.value)}
                   placeholder="Escribe tu respuesta aquí..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800"
                 />
               </div>
             )}
 
             {question.tipo === "ESSAY" && (
               <div>
-                <textarea
+                <Textarea
                   rows={6}
                   value={textValue}
                   onChange={(e) => handleTextChange(e.target.value)}
                   placeholder="Escribe tu respuesta desarrollada aquí..."
-                  className="w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800"
                 />
               </div>
             )}
@@ -831,16 +891,15 @@ function PresentarQuizContent({
                   return (
                     <div
                       key={sub.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200"
+                      className="flex flex-col justify-between gap-3 rounded-card border border-line bg-cream p-3 sm:flex-row sm:items-center"
                     >
                       <span
-                        className="text-sm text-slate-700 font-medium"
+                        className="text-sm font-medium text-plum"
                         dangerouslySetInnerHTML={{ __html: sub.textoHtml }}
                       />
-                      <select
+                      <Select
                         value={matchingPairs[sub.id] || ""}
                         onChange={(e) => handleMatchingChange(sub.id, e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
                         <option value="">-- Seleccionar opción --</option>
                         {rightMatches.map((optText, idx) => (
@@ -848,7 +907,7 @@ function PresentarQuizContent({
                             {optText}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   );
                 })}
@@ -856,42 +915,36 @@ function PresentarQuizContent({
             )}
 
             {(question.tipo === "DESCRIPTION" || question.tipo === "UNSUPPORTED") && (
-              <div className="p-4 bg-slate-50 rounded-xl text-slate-600 text-sm italic">
+              <div className="rounded-card bg-cream p-4 text-sm italic text-plum/70">
                 Pregunta informativa. Haz clic en Siguiente para continuar.
               </div>
             )}
           </div>
 
-          <div className="flex justify-between pt-6 border-t border-slate-100">
-            <button
+          <div className="flex justify-between border-t border-line pt-6">
+            <Button
+              variant="secondary"
               onClick={() => goToQuestion(currentIndex - 1)}
               disabled={currentIndex === 0 || !attempt.quiz.permitirRetroceso}
-              className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition disabled:opacity-50"
             >
               Anterior
-            </button>
+            </Button>
 
             {currentIndex < totalQuestions - 1 ? (
-              <button
-                onClick={() => goToQuestion(currentIndex + 1)}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition"
-              >
+              <Button onClick={() => goToQuestion(currentIndex + 1)}>
                 Siguiente
-              </button>
+              </Button>
             ) : (
-              <button
-                onClick={() => setShowConfirmSubmit(true)}
-                className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition"
-              >
+              <Button variant="plum" onClick={() => setShowConfirmSubmit(true)}>
                 Revisar y Enviar
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </Card>
 
         {attempt.quiz.permitirRetroceso && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit space-y-4">
-            <h3 className="font-semibold text-slate-800 text-sm">Navegación</h3>
+          <Card className="h-fit space-y-4 p-6">
+            <h3 className="text-sm font-semibold text-plum">Navegación</h3>
             <div className="grid grid-cols-5 gap-2">
               {Array.from({ length: totalQuestions }).map((_, idx) => {
                 const isCurrent = idx === currentIndex;
@@ -903,12 +956,12 @@ function PresentarQuizContent({
                   <button
                     key={idx}
                     onClick={() => goToQuestion(idx)}
-                    className={`h-10 rounded-lg text-xs font-semibold transition flex items-center justify-center ${
+                    className={`flex h-10 items-center justify-center rounded-chip text-xs font-semibold transition-colors ${
                       isCurrent
-                        ? "bg-indigo-600 text-white shadow-sm"
+                        ? "bg-magenta text-white shadow-pop"
                         : hasAnswer
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "border border-aqua-200 bg-aqua-100 text-aqua-500"
+                        : "bg-cream text-plum/60 hover:bg-line"
                     }`}
                   >
                     {idx + 1}
@@ -916,43 +969,38 @@ function PresentarQuizContent({
                 );
               })}
             </div>
-            <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+            <div className="space-y-1 border-t border-line pt-4 text-[11px] text-muted">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-indigo-600 inline-block" /> Actual
+                <span className="inline-block h-3 w-3 rounded-sm bg-magenta" /> Actual
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200 inline-block" /> Respondida
+                <span className="inline-block h-3 w-3 rounded-sm border border-aqua-200 bg-aqua-100" /> Respondida
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-slate-100 inline-block" /> Sin responder
+                <span className="inline-block h-3 w-3 rounded-sm bg-cream" /> Sin responder
               </div>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
       {showNoBackWarning && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-800">Advertencia</h3>
-            <p className="text-slate-600 text-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-plum/50 p-4">
+          <Card className="w-full max-w-md space-y-4 p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-plum">Advertencia</h3>
+            <p className="text-sm text-plum/70">
               En este quiz no está permitido retroceder. Una vez que avances, no podrás volver a esta pregunta ni modificarla.
             </p>
             <div className="flex justify-end gap-3 pt-2">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowNoBackWarning(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium"
               >
                 Cancelar
-              </button>
-              <button
-                onClick={confirmNoBackNavigation}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium"
-              >
-                Continuar
-              </button>
+              </Button>
+              <Button onClick={confirmNoBackNavigation}>Continuar</Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
@@ -965,7 +1013,7 @@ export default function PresentarQuizPage({
   params: Promise<{ id: string; attemptId: string }>;
 }) {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando evaluación...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-muted">Cargando evaluación...</div>}>
       <PresentarQuizContent params={params} />
     </Suspense>
   );

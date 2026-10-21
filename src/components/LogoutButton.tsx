@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { getCsrfTokenFromCookie } from '@/lib/csrf-client';
+import { cn } from '@/lib/cn';
 
 /**
  * Boton de cierre de sesion compartido por los paneles de estudiante y
@@ -40,8 +42,14 @@ export function LogoutButton({ csrfToken }: { csrfToken?: string }) {
     <button
       onClick={handleLogout}
       disabled={loading}
-      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition text-sm disabled:opacity-50"
+      aria-label="Cerrar Sesión"
+      className={cn(
+        'inline-flex items-center gap-2 rounded-btn border border-line-strong px-3 py-1.5',
+        'text-sm font-semibold text-plum transition-colors hover:bg-plum/5',
+        'disabled:opacity-50 cursor-pointer'
+      )}
     >
+      <LogOut size={15} strokeWidth={2} aria-hidden />
       {loading ? 'Cerrando...' : 'Cerrar Sesión'}
     </button>
   );

@@ -1,5 +1,6 @@
 import { getSessionUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import { AppShell } from '@/components/AppShell';
 
 // La verificacion de sesion no puede prerenderizarse: el layout debe
 // ejecutarse en el servidor en cada request antes de renderizar el panel.
@@ -21,5 +22,5 @@ export default async function DocenteLayout({
     redirect('/estudiante');
   }
 
-  return <>{children}</>;
+  return <AppShell>{children}</AppShell>;
 }

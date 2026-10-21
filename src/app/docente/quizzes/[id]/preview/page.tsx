@@ -1,35 +1,34 @@
 "use client";
 
 import { Suspense } from "react";
-
-
-
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { Eye } from 'lucide-react';
 import { isRespuestaUnica } from '@/lib/question-type';
+import { Alert, Badge, Button, Card, EmptyState, PageHeader } from '@/components/ui';
 
 function PreviewQuizPageContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   interface OptionItem {
-  id: string;
-  textoHtml: string;
-  esCorrecta: boolean;
-}
-interface QuestionItem {
-  id: string;
-  tipo: string;
-  defaultGrade: number;
-  enunciadoHtml: string;
-  datosJson?: string | null;
-  options: OptionItem[];
-}
-interface QuizData {
-  titulo: string;
-  descripcion?: string;
-  instrucciones?: string;
-  questions: QuestionItem[];
-}
-const [quiz, setQuiz] = useState<QuizData | null>(null);
+    id: string;
+    textoHtml: string;
+    esCorrecta: boolean;
+  }
+  interface QuestionItem {
+    id: string;
+    tipo: string;
+    defaultGrade: number;
+    enunciadoHtml: string;
+    datosJson?: string | null;
+    options: OptionItem[];
+  }
+  interface QuizData {
+    titulo: string;
+    descripcion?: string;
+    instrucciones?: string;
+    questions: QuestionItem[];
+  }
+  const [quiz, setQuiz] = useState<QuizData | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,14 +51,21 @@ const [quiz, setQuiz] = useState<QuizData | null>(null);
   }, [id]);
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando vista previa...</div>;
+    return <div className='py-12 text-center text-muted'>Cargando vista previa...</div>;
   }
 
   if (error || !quiz) {
     return (
-      <div className='p-8 text-center'>
-        <div className='text-red-600 mb-4'>{error || 'Quiz no encontrado'}</div>
-        <Link href='/docente' className='text-indigo-600 underline text-sm'>Volver al panel</Link>
+      <div className='py-12 text-center'>
+        <Alert tone='error' className='mx-auto max-w-md'>
+          {error || 'Quiz no encontrado'}
+        </Alert>
+        <Link
+          href='/docente'
+          className='mt-4 inline-block text-sm font-semibold text-plum/60 underline'
+        >
+          Volver al panel
+        </Link>
       </div>
     );
   }
@@ -77,41 +83,55 @@ const [quiz, setQuiz] = useState<QuizData | null>(null);
     : false;
 
   return (
-    <div className='flex-1 p-8 max-w-4xl mx-auto w-full'>
-      <div className='bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl mb-6 text-sm flex justify-between items-center'>
+    <div>
+      <Alert tone='warning' className='mb-6 flex items-center justify-between gap-4'>
         <span>Modo vista previa, no se registrarán intentos</span>
-        <Link href='/docente' className='px-3 py-1 bg-white border border-amber-300 rounded font-medium text-xs hover:bg-amber-100'>
+        <Link
+          href='/docente'
+          className='shrink-0 rounded-btn border border-line-strong bg-white px-3 py-1 text-xs font-semibold text-plum transition-colors hover:bg-plum/5'
+        >
           Salir de vista previa
         </Link>
-      </div>
+      </Alert>
 
-      <div className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-6'>
-        <h1 className='text-2xl font-bold text-slate-800 mb-2'>{quiz.titulo}</h1>
-        <p className='text-slate-600 text-sm mb-4'>{quiz.descripcion}</p>
-        {quiz.instrucciones && (
-          <div className='p-4 bg-slate-50 rounded-lg text-xs text-slate-700 mb-4'>
-            <strong>Instrucciones:</strong> {quiz.instrucciones}
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={quiz.titulo}
+        subtitle={quiz.descripcion}
+        breadcrumbs={
+          <Link href='/docente' className='text-plum/60 transition-colors hover:text-plum'>
+            ← Volver al panel
+          </Link>
+        }
+      />
+
+      {quiz.instrucciones && (
+        <Card tone='cream' className='mb-6 p-4 text-xs text-plum/80'>
+          <strong className='text-plum'>Instrucciones:</strong> {quiz.instrucciones}
+        </Card>
+      )}
 
       {questions.length === 0 ? (
-        <div className='bg-white p-12 rounded-xl shadow-sm border border-slate-200 text-center'>
-          <p className='text-slate-500 text-sm'>Este quiz no tiene preguntas importadas todavía.</p>
-        </div>
+        <Card>
+          <EmptyState
+            icon={Eye}
+            title='Este quiz no tiene preguntas importadas todavía'
+            description='Importa un archivo Moodle XML para llenar el cuestionario.'
+          />
+        </Card>
       ) : (
-        <div className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6'>
-          <div className='flex justify-between items-center border-b border-slate-100 pb-4'>
-            <span className='text-sm font-semibold text-slate-700'>
-              Pregunta {currentIndex + 1} de {questions.length} ({currentQ.tipo})
+        <Card className='space-y-6 p-8'>
+          <div className='flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4'>
+            <span className='text-sm font-semibold text-plum'>
+              Pregunta {currentIndex + 1} de {questions.length}
             </span>
-            <span className='text-xs font-medium px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full'>
-              Puntaje: {currentQ.defaultGrade}
-            </span>
+            <div className='flex items-center gap-2'>
+              <Badge tone='lavender'>{currentQ.tipo}</Badge>
+              <Badge tone='magenta'>Puntaje: {currentQ.defaultGrade}</Badge>
+            </div>
           </div>
 
           <div
-            className='prose text-slate-800 text-sm'
+            className='moodle-content text-sm'
             dangerouslySetInnerHTML={{ __html: currentQ.enunciadoHtml }}
           />
 
@@ -119,46 +139,53 @@ const [quiz, setQuiz] = useState<QuizData | null>(null);
             {currentQ.options?.map((opt) => (
               <label
                 key={opt.id}
-                className='flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer'
+                className='flex cursor-pointer items-center gap-3 rounded-card border border-line bg-white p-3 transition-colors hover:border-line-strong hover:bg-cream/50'
               >
                 <input
                   type={isMultiChoice ? 'checkbox' : 'radio'}
                   name='preview-option'
-                  className='text-indigo-600'
+                  className='h-4 w-4 shrink-0 accent-magenta'
                 />
-                <span className='text-sm text-slate-700' dangerouslySetInnerHTML={{ __html: opt.textoHtml }} />
+                <span
+                  className='text-sm text-plum'
+                  dangerouslySetInnerHTML={{ __html: opt.textoHtml }}
+                />
                 {opt.esCorrecta && (
-                  <span className='ml-auto text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded font-semibold'>
+                  <Badge tone='success' className='ml-auto'>
                     Correcta (Vista Previa)
-                  </span>
+                  </Badge>
                 )}
               </label>
             ))}
           </div>
 
-          <div className='flex justify-between pt-6 border-t border-slate-100'>
-            <button
+          <div className='flex justify-between border-t border-line pt-6'>
+            <Button
+              variant='secondary'
               onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
-              className='px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium disabled:opacity-50'
             >
               Anterior
-            </button>
-            <button
-              onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+            </Button>
+            <Button
+              onClick={() =>
+                setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))
+              }
               disabled={currentIndex === questions.length - 1}
-              className='px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50'
             >
               Siguiente
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
 }
-export default function PreviewQuizPage( { params }: { params: Promise<{ id: string }> } ) {
+
+export default function PreviewQuizPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-      <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando...</div>}><PreviewQuizPageContent params={params} /></Suspense>
+    <Suspense fallback={<div className="py-12 text-center text-muted">Cargando...</div>}>
+      <PreviewQuizPageContent params={params} />
+    </Suspense>
   );
 }

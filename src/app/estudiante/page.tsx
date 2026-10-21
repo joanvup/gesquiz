@@ -1,25 +1,24 @@
 import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getCsrfToken } from "@/lib/csrf";
 import { db } from "@/lib/db";
 import { gradeToPercentage } from "@/lib/scoring";
 import { Suspense } from "react";
 import Link from "next/link";
 import { unstable_noStore } from "next/cache";
+import { BookOpen, CalendarClock, Hash, Timer } from "lucide-react";
 import { StartQuizButton } from "./StartQuizButton";
-import { LogoutButton } from "@/components/LogoutButton";
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 
-async function EstudianteContent() {
-  unstable_noStore();
-  const user = await getSessionUser();
-  if (!user || user.role !== "STUDENT") {
-    redirect("/login");
-  }
-
-  const csrfToken = await getCsrfToken();
-
+/**
+ * Quizzes asignados al estudiante, con la ventana de tiempo ya resuelta.
+ *
+ * La ventana se evalua aqui (y no en el render) porque el API vuelve a
+ * comprobarla al crear el intento: en el panel solo sirve para no ofrecer un
+ * boton de "Iniciar Quiz" que va a fallar.
+ */
+async function loadStudentQuizzes(studentId: string) {
   const memberships = await db.groupMember.findMany({
-    where: { userId: user.id },
+    where: { userId: studentId },
     select: { groupId: true },
   });
   const groupIds = memberships.map(m => m.groupId);
@@ -27,7 +26,7 @@ async function EstudianteContent() {
   const assignments = await db.quizAssignment.findMany({
     where: {
       OR: [
-        { studentId: user.id },
+        { studentId },
         { groupId: { in: groupIds } },
       ],
     },
@@ -42,7 +41,7 @@ async function EstudianteContent() {
     },
     include: {
       attempts: {
-        where: { studentId: user.id },
+        where: { studentId },
         orderBy: { numeroAttempt: 'desc' },
       },
       _count: {
@@ -52,26 +51,42 @@ async function EstudianteContent() {
     orderBy: { createdAt: 'desc' },
   });
 
+  const now = Date.now();
+
+  return quizzes.map(quiz => ({
+    ...quiz,
+    windowOpen:
+      (!quiz.ventanaAbre || new Date(quiz.ventanaAbre).getTime() <= now) &&
+      (!quiz.ventanaCierra || new Date(quiz.ventanaCierra).getTime() >= now),
+  }));
+}
+
+async function EstudianteContent() {
+  unstable_noStore();
+  const user = await getSessionUser();
+  if (!user || user.role !== "STUDENT") {
+    redirect("/login");
+  }
+
+  const quizzes = await loadStudentQuizzes(user.id);
 
   return (
-    <div className="flex-1 p-8 max-w-5xl mx-auto w-full">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Panel del Estudiante</h1>
-          <p className="text-slate-600">Estudiante: {user.name} ({user.email})</p>
-        </div>
-        <LogoutButton csrfToken={csrfToken} />
-      </div>
+    <div>
+      <PageHeader
+        title="Panel del Estudiante"
+        subtitle={`Estudiante: ${user.name} (${user.email})`}
+      />
 
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">Tus Quizzes Asignados</h2>
-      </div>
+      <h2 className="mb-4 text-xl font-bold text-plum">Tus Quizzes Asignados</h2>
 
       {quizzes.length === 0 ? (
-        <div className="bg-white p-12 rounded-xl shadow-sm border border-slate-200 text-center">
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">No hay quizzes asignados</h3>
-          <p className="text-slate-500 text-sm">Cuando tus docentes te asignen cuestionarios, aparecerán aquí.</p>
-        </div>
+        <Card>
+          <EmptyState
+            icon={BookOpen}
+            title="No hay quizzes asignados"
+            description="Cuando tus docentes te asignen cuestionarios, aparecerán aquí."
+          />
+        </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {quizzes.map(quiz => {
@@ -80,58 +95,81 @@ async function EstudianteContent() {
             const attemptsCount = validAttempts.length;
             const canAttempt = attemptsCount < quiz.intentosPermitidos;
 
-            let windowOpen = true;
+            // La ventana de tiempo ya viene resuelta desde el servidor.
+            const windowOpen = quiz.windowOpen;
 
             const latestAttempt = quiz.attempts[0];
 
             return (
-              <div key={quiz.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+              <Card key={quiz.id} interactive className="flex flex-col justify-between p-6">
                 <div>
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-slate-800 text-lg">{quiz.titulo}</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-plum">{quiz.titulo}</h3>
+                    <Badge tone="lavender">
+                      <Hash size={12} strokeWidth={2} aria-hidden />
                       {quiz._count.questions} preguntas
-                    </span>
+                    </Badge>
                   </div>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-2">{quiz.descripcion || 'Sin descripción'}</p>
+                  <p className="mb-4 line-clamp-2 text-sm text-muted">
+                    {quiz.descripcion || 'Sin descripción'}
+                  </p>
 
-                  <div className="space-y-1.5 text-xs text-slate-600 mb-6 bg-slate-50 p-4 rounded-lg">
+                  <dl className="mb-6 space-y-1.5 rounded-chip bg-cream p-4 text-xs text-plum/70">
                     <div className="flex justify-between">
-                      <span>Tiempo límite:</span>
-                      <span className="font-medium">{quiz.tiempoLimiteMinutos ? `${quiz.tiempoLimiteMinutos} min` : 'Sin límite'}</span>
+                      <dt className="inline-flex items-center gap-1.5">
+                        <Timer size={13} strokeWidth={2} aria-hidden />
+                        Tiempo límite:
+                      </dt>
+                      <dd className="font-medium text-plum">
+                        {quiz.tiempoLimiteMinutos ? `${quiz.tiempoLimiteMinutos} min` : 'Sin límite'}
+                      </dd>
                     </div>
                     <div className="flex justify-between">
-                      <span>Intentos realizados:</span>
-                      <span className="font-medium">{attemptsCount} de {quiz.intentosPermitidos}</span>
+                      <dt>Intentos realizados:</dt>
+                      <dd className="font-medium text-plum">
+                        {attemptsCount} de {quiz.intentosPermitidos}
+                      </dd>
                     </div>
                     {quiz.ventanaAbre && (
                       <div className="flex justify-between">
-                        <span>Abre:</span>
-                        <span className="font-medium">{new Date(quiz.ventanaAbre).toLocaleString()}</span>
+                        <dt className="inline-flex items-center gap-1.5">
+                          <CalendarClock size={13} strokeWidth={2} aria-hidden />
+                          Abre:
+                        </dt>
+                        <dd className="font-medium text-plum">
+                          {new Date(quiz.ventanaAbre).toLocaleString()}
+                        </dd>
                       </div>
                     )}
                     {quiz.ventanaCierra && (
                       <div className="flex justify-between">
-                        <span>Cierra:</span>
-                        <span className="font-medium">{new Date(quiz.ventanaCierra).toLocaleString()}</span>
+                        <dt className="inline-flex items-center gap-1.5">
+                          <CalendarClock size={13} strokeWidth={2} aria-hidden />
+                          Cierra:
+                        </dt>
+                        <dd className="font-medium text-plum">
+                          {new Date(quiz.ventanaCierra).toLocaleString()}
+                        </dd>
                       </div>
                     )}
                     {latestAttempt && (
-                      <div className="flex justify-between pt-2 border-t border-slate-200">
-                        <span>Último estado:</span>
-                        <span className={`font-semibold ${latestAttempt.status === 'CALIFICADO' ? 'text-green-600' : latestAttempt.status === 'EN_CURSO' ? 'text-amber-600' : 'text-slate-700'}`}>
+                      <div className="flex justify-between border-t border-line pt-2">
+                        <dt>Último estado:</dt>
+                        <dd
+                          className={`font-semibold ${latestAttempt.status === 'CALIFICADO' ? 'text-aqua-500' : latestAttempt.status === 'EN_CURSO' ? 'text-yellow-600' : 'text-plum'}`}
+                        >
                           {latestAttempt.status} {latestAttempt.score !== null ? `(${gradeToPercentage(latestAttempt.score, quiz.puntajeMaximo)}/100)` : ''}
-                        </span>
+                        </dd>
                       </div>
                     )}
-                  </div>
+                  </dl>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center justify-between border-t border-line pt-4">
                   {activeAttempt ? (
                     <Link
                       href={`/estudiante/quizzes/${quiz.id}/intentos/${activeAttempt.id}/presentar`}
-                      className="w-full text-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-magenta px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-magenta-hover"
                     >
                       Continuar Intento en Curso
                     </Link>
@@ -140,20 +178,20 @@ async function EstudianteContent() {
                   ) : latestAttempt && (latestAttempt.status === 'CALIFICADO' || latestAttempt.status === 'ENVIADO') ? (
                     <Link
                       href={`/estudiante/quizzes/${quiz.id}/intentos/${latestAttempt.id}/presentar`}
-                      className="w-full text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition"
+                      className="inline-flex w-full items-center justify-center rounded-btn border border-line-strong px-4 py-2.5 text-sm font-semibold text-plum transition-colors hover:bg-plum/5"
                     >
                       Ver Resultados
                     </Link>
                   ) : (
                     <button
                       disabled
-                      className="w-full px-4 py-2 bg-slate-100 text-slate-400 font-medium rounded-lg text-sm cursor-not-allowed"
+                      className="w-full cursor-not-allowed rounded-btn bg-cream px-4 py-2.5 text-sm font-semibold text-plum/40"
                     >
                       {!windowOpen ? 'Fuera de ventana de tiempo' : 'Intentos agotados'}
                     </button>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -164,7 +202,7 @@ async function EstudianteContent() {
 
 export default function EstudianteDashboard() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando quizzes...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-muted">Cargando quizzes...</div>}>
       <EstudianteContent />
     </Suspense>
   );

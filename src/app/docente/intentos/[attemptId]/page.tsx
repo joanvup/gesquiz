@@ -4,7 +4,18 @@ import { Suspense } from 'react';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { RotateCcw, Ban } from 'lucide-react';
 import { gradeToPercentage } from '@/lib/scoring';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Field,
+  Input,
+  PageHeader,
+  StatCard,
+} from '@/components/ui';
 
 interface Question {
   id: string;
@@ -178,139 +189,177 @@ function AttemptDetailContent({ params }: { params: Promise<{ attemptId: string 
   }
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando detalle del intento...</div>;
+    return (
+      <div className='py-12 text-center text-muted'>Cargando detalle del intento...</div>
+    );
   }
 
   if (error || !attempt) {
     return (
-      <div className='p-8 max-w-4xl mx-auto'>
-        <div className='p-4 bg-red-50 text-red-700 rounded-lg mb-4'>{error || 'No encontrado'}</div>
-        <Link href='/docente' className='text-indigo-600 hover:underline'>Volver al panel</Link>
+      <div>
+        <Alert tone='error' className='mb-4'>
+          {error || 'No encontrado'}
+        </Alert>
+        <Link href='/docente' className='text-sm font-semibold text-plum/60 underline'>
+          Volver al panel
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className='flex-1 p-8 max-w-5xl mx-auto w-full'>
-      <div className='flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8'>
-        <div>
-          <div className='flex items-center gap-3 mb-1'>
-            <Link href={'/docente/quizzes/' + attempt.quiz.id + '/resultados'} className='text-indigo-600 hover:underline text-sm'>← Resultados</Link>
-          </div>
-          <h1 className='text-2xl font-bold text-slate-800'>Intento #{attempt.numeroAttempt} - {attempt.student.name}</h1>
-          <p className='text-slate-600 text-sm'>Quiz: {attempt.quiz.titulo} | Email: {attempt.student.email}</p>
-        </div>
-        <div className='flex gap-3'>
-          <button
-            onClick={handleReopen}
-            disabled={actionLoading}
-            className='px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition text-sm'
+    <div>
+      <PageHeader
+        title={`Intento #${attempt.numeroAttempt} - ${attempt.student.name}`}
+        subtitle={`Quiz: ${attempt.quiz.titulo} | Email: ${attempt.student.email}`}
+        breadcrumbs={
+          <Link
+            href={'/docente/quizzes/' + attempt.quiz.id + '/resultados'}
+            className='text-plum/60 transition-colors hover:text-plum'
           >
-            Reabrir Intento
-          </button>
-          <button
-            onClick={handleAnnul}
-            disabled={actionLoading}
-            className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition text-sm'
-          >
-            Anular Intento
-          </button>
-        </div>
+            ← Resultados
+          </Link>
+        }
+        actions={
+          <>
+            <Button
+              variant='secondary'
+              onClick={handleReopen}
+              disabled={actionLoading}
+            >
+              <RotateCcw size={15} strokeWidth={2} aria-hidden />
+              Reabrir Intento
+            </Button>
+            <Button variant='danger' onClick={handleAnnul} disabled={actionLoading}>
+              <Ban size={15} strokeWidth={2} aria-hidden />
+              Anular Intento
+            </Button>
+          </>
+        }
+      />
+
+      <div className='mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+        <StatCard label='Estado' value={attempt.status} tone='plum' />
+        <StatCard
+          label='Nota Obtenida'
+          value={`${gradeToPercentage(attempt.score ?? 0, attempt.quiz.puntajeMaximo)} / 100`}
+          tone='magenta'
+        />
+        <StatCard label='Infracciones' value={attempt.infractions} tone='peach' />
+        <StatCard
+          label='Fecha Envío'
+          value={
+            attempt.submittedAt
+              ? new Date(attempt.submittedAt).toLocaleString()
+              : 'En curso'
+          }
+          tone='lavender'
+        />
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Estado</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>{attempt.status}</p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Nota Obtenida</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>
-            {gradeToPercentage(attempt.score ?? 0, attempt.quiz.puntajeMaximo)} / 100
-          </p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Infracciones</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>{attempt.infractions}</p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Fecha Envío</span>
-          <p className='text-sm font-semibold text-slate-800 mt-1'>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'En curso'}</p>
-        </div>
-      </div>
-
-      <div className='bg-white rounded-xl shadow-sm border border-slate-200 mb-8 p-6'>
-        <h3 className='text-lg font-semibold text-slate-800 mb-6'>Preguntas y Respuestas del Estudiante</h3>
+      <Card className='mb-8 p-6'>
+        <h3 className='mb-6 text-lg font-semibold text-plum'>
+          Preguntas y Respuestas del Estudiante
+        </h3>
         <div className='space-y-8'>
           {attempt.quiz.questions.map((q, idx) => {
             const ans = attempt.answers.find((a) => a.questionId === q.id);
             return (
-              <div key={q.id} className='p-6 bg-slate-50 rounded-xl border border-slate-200'>
-                <div className='flex justify-between items-start mb-3'>
-                  <span className='font-semibold text-slate-700'>Pregunta {idx + 1} ({q.tipo})</span>
-                  <span className='text-xs font-medium px-2.5 py-1 bg-white rounded border border-slate-200 text-slate-600'>
-                    Puntaje: {gradeToPercentage(ans?.puntuacion ?? 0, q.defaultGrade)} / 100
+              <div
+                key={q.id}
+                className='rounded-card border border-line bg-cream p-6'
+              >
+                <div className='mb-3 flex flex-wrap items-start justify-between gap-2'>
+                  <span className='font-semibold text-plum'>
+                    Pregunta {idx + 1} ({q.tipo})
                   </span>
+                  <Badge tone='neutral'>
+                    Puntaje: {gradeToPercentage(ans?.puntuacion ?? 0, q.defaultGrade)} / 100
+                  </Badge>
                 </div>
-                <div className='text-slate-800 mb-4 prose max-w-none text-sm' dangerouslySetInnerHTML={{ __html: q.enunciadoHtml }} />
+                <div
+                  className='moodle-content mb-4 text-sm'
+                  dangerouslySetInnerHTML={{ __html: q.enunciadoHtml }}
+                />
 
-                <div className='bg-white p-4 rounded-lg border border-slate-200 mb-4 text-sm'>
-                  <span className='font-semibold text-slate-600 block mb-1'>Respuesta del estudiante:</span>
-                  <p className='text-slate-800'>
-                    {ans?.respuestaTexto || ans?.respuestaJson || <span className='text-slate-400 italic'>Sin respuesta</span>}
+                <div className='mb-4 rounded-chip border border-line bg-white p-4 text-sm'>
+                  <span className='mb-1 block font-semibold text-plum/70'>
+                    Respuesta del estudiante:
+                  </span>
+                  <p className='text-plum'>
+                    {ans?.respuestaTexto || ans?.respuestaJson || (
+                      <span className='italic text-plum/40'>Sin respuesta</span>
+                    )}
                   </p>
                 </div>
 
                 {q.tipo === 'ESSAY' && (
-                  <div className='bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex items-center gap-4'>
-                    <div className='flex-1'>
-                      <label className='block text-xs font-semibold text-indigo-900 mb-1'>Calificación manual (0 a {q.defaultGrade}):</label>
-                      <input
-                        type='number'
-                        step='0.1'
-                        min='0'
-                        max={q.defaultGrade}
-                        value={essayScores[q.id] ?? ''}
-                        onChange={(e) => setEssayScores({ ...essayScores, [q.id]: parseFloat(e.target.value) })}
-                        className='w-full px-3 py-1.5 bg-white border border-indigo-200 rounded text-sm'
-                      />
+                  <div className='flex flex-wrap items-end gap-4 rounded-chip border border-lavender-200 bg-lavender-100 p-4'>
+                    <div className='min-w-[200px] flex-1'>
+                      <Field
+                        label={`Calificación manual (0 a ${q.defaultGrade}):`}
+                      >
+                        <Input
+                          type='number'
+                          step='0.1'
+                          min='0'
+                          max={q.defaultGrade}
+                          value={essayScores[q.id] ?? ''}
+                          onChange={(e) =>
+                            setEssayScores({
+                              ...essayScores,
+                              [q.id]: parseFloat(e.target.value),
+                            })
+                          }
+                        />
+                      </Field>
                     </div>
-                    <button
+                    <Button
                       onClick={() => handleGradeEssay(q.id)}
                       disabled={actionLoading}
-                      className='mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded text-sm transition'
                     >
                       Guardar Calificación
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
             );
           })}
         </div>
-      </div>
+      </Card>
 
-      <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
-        <h3 className='text-lg font-semibold text-slate-800 mb-6'>Línea de Tiempo de Auditoría (AuditEvent)</h3>
+      <Card className='p-6'>
+        <h3 className='mb-6 text-lg font-semibold text-plum'>
+          Línea de Tiempo de Auditoría (AuditEvent)
+        </h3>
         {attempt.events.length === 0 ? (
-          <p className='text-slate-500 text-sm'>No hay eventos de auditoría registrados.</p>
+          <p className='text-sm text-muted'>
+            No hay eventos de auditoría registrados.
+          </p>
         ) : (
           <div className='space-y-4'>
             {attempt.events.map((ev) => (
-              <div key={ev.id} className='flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm'>
-                <div className='w-32 flex-shrink-0 text-xs text-slate-500 font-mono'>
+              <div
+                key={ev.id}
+                className='flex items-start gap-4 rounded-chip border border-line bg-cream p-4 text-sm'
+              >
+                <div className='w-32 flex-shrink-0 font-mono text-xs text-plum/60'>
                   {new Date(ev.createdAt).toLocaleString()}
                 </div>
                 <div className='flex-1'>
-                  <div className='flex items-center gap-2 mb-1'>
-                    <span className='font-semibold text-slate-800 px-2 py-0.5 bg-slate-200 rounded text-xs'>{ev.tipo}</span>
-                    {ev.user && <span className='text-xs text-slate-600'>por {ev.user.name}</span>}
+                  <div className='mb-1 flex items-center gap-2'>
+                    <Badge tone='neutral'>{ev.tipo}</Badge>
+                    {ev.user && (
+                      <span className='text-xs text-plum/60'>por {ev.user.name}</span>
+                    )}
                   </div>
-                  <p className='text-slate-700 text-xs'>{ev.detalle || 'Sin detalle'}</p>
+                  <p className='text-xs text-plum/80'>{ev.detalle || 'Sin detalle'}</p>
                   {(ev.ip || ev.userAgent) && (
-                    <div className='mt-2 text-[11px] text-slate-400 font-mono flex gap-4'>
+                    <div className='mt-2 flex gap-4 font-mono text-[11px] text-plum/45'>
                       {ev.ip && <span>IP: {ev.ip}</span>}
-                      {ev.userAgent && <span className='truncate max-w-md'>UA: {ev.userAgent}</span>}
+                      {ev.userAgent && (
+                        <span className='max-w-md truncate'>UA: {ev.userAgent}</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -318,14 +367,14 @@ function AttemptDetailContent({ params }: { params: Promise<{ attemptId: string 
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
 
 export default function AttemptDetailPage({ params }: { params: Promise<{ attemptId: string }> }) {
   return (
-    <Suspense fallback={<div className='p-8 text-center text-slate-500'>Cargando detalle...</div>}>
+    <Suspense fallback={<div className='py-12 text-center text-muted'>Cargando detalle...</div>}>
       <AttemptDetailContent params={params} />
     </Suspense>
   );

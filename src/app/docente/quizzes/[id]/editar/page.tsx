@@ -1,33 +1,46 @@
 "use client";
 
 import { Suspense } from "react";
-
-
-
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Alert, Button, Card, PageHeader } from '@/components/ui';
+import {
+  QuizSettingsFields,
+  type QuizSettingsValues,
+} from '../../QuizSettingsFields';
+
+const INITIAL: QuizSettingsValues = {
+  titulo: '',
+  descripcion: '',
+  instrucciones: '',
+  permitirRetroceso: true,
+  tiempoLimiteMinutos: '',
+  ordenAleatorioPreguntas: false,
+  ordenAleatorioOpciones: false,
+  intentosPermitidos: '1',
+  ventanaAbre: '',
+  ventanaCierra: '',
+  mostrarResultado: 'NOTA',
+  modoSeguro: true,
+  maxInfracciones: '3',
+  publicado: false,
+};
 
 function EditarQuizPageContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [titulo, setTitulo] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [instrucciones, setInstrucciones] = useState('');
-  const [permitirRetroceso, setPermitirRetroceso] = useState(true);
-  const [tiempoLimiteMinutos, setTiempoLimiteMinutos] = useState('');
-  const [ordenAleatorioPreguntas, setOrdenAleatorioPreguntas] = useState(false);
-  const [ordenAleatorioOpciones, setOrdenAleatorioOpciones] = useState(false);
-  const [intentosPermitidos, setIntentosPermitidos] = useState('1');
-  const [ventanaAbre, setVentanaAbre] = useState('');
-  const [ventanaCierra, setVentanaCierra] = useState('');
-  const [mostrarResultado, setMostrarResultado] = useState('NOTA');
-  const [modoSeguro, setModoSeguro] = useState(true);
-  const [maxInfracciones, setMaxInfracciones] = useState('3');
-  const [publicado, setPublicado] = useState(false);
+  const [values, setValues] = useState<QuizSettingsValues>(INITIAL);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+
+  function set<K extends keyof QuizSettingsValues>(
+    key: K,
+    value: QuizSettingsValues[K]
+  ) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  }
 
   useEffect(() => {
     fetch('/api/docente/quizzes/' + id)
@@ -35,20 +48,26 @@ function EditarQuizPageContent({ params }: { params: Promise<{ id: string }> }) 
       .then((data) => {
         if (data.quiz) {
           const q = data.quiz;
-          setTitulo(q.titulo || '');
-          setDescripcion(q.descripcion || '');
-          setInstrucciones(q.instrucciones || '');
-          setPermitirRetroceso(q.permitirRetroceso);
-          setTiempoLimiteMinutos(q.tiempoLimiteMinutos ? q.tiempoLimiteMinutos.toString() : '');
-          setOrdenAleatorioPreguntas(q.ordenAleatorioPreguntas);
-          setOrdenAleatorioOpciones(q.ordenAleatorioOpciones);
-          setIntentosPermitidos(q.intentosPermitidos ? q.intentosPermitidos.toString() : '1');
-          setVentanaAbre(q.ventanaAbre ? q.ventanaAbre.substring(0, 16) : '');
-          setVentanaCierra(q.ventanaCierra ? q.ventanaCierra.substring(0, 16) : '');
-          setMostrarResultado(q.mostrarResultado || 'NOTA');
-          setModoSeguro(q.modoSeguro);
-          setMaxInfracciones(q.maxInfracciones ? q.maxInfracciones.toString() : '3');
-          setPublicado(q.publicado);
+          setValues({
+            titulo: q.titulo || '',
+            descripcion: q.descripcion || '',
+            instrucciones: q.instrucciones || '',
+            permitirRetroceso: q.permitirRetroceso,
+            tiempoLimiteMinutos: q.tiempoLimiteMinutos
+              ? q.tiempoLimiteMinutos.toString()
+              : '',
+            ordenAleatorioPreguntas: q.ordenAleatorioPreguntas,
+            ordenAleatorioOpciones: q.ordenAleatorioOpciones,
+            intentosPermitidos: q.intentosPermitidos
+              ? q.intentosPermitidos.toString()
+              : '1',
+            ventanaAbre: q.ventanaAbre ? q.ventanaAbre.substring(0, 16) : '',
+            ventanaCierra: q.ventanaCierra ? q.ventanaCierra.substring(0, 16) : '',
+            mostrarResultado: q.mostrarResultado || 'NOTA',
+            modoSeguro: q.modoSeguro,
+            maxInfracciones: q.maxInfracciones ? q.maxInfracciones.toString() : '3',
+            publicado: q.publicado,
+          });
         } else {
           setError(data.error || 'Quiz no encontrado');
         }
@@ -70,20 +89,26 @@ function EditarQuizPageContent({ params }: { params: Promise<{ id: string }> }) 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          titulo,
-          descripcion: descripcion || null,
-          instrucciones: instrucciones || null,
-          permitirRetroceso,
-          tiempoLimiteMinutos: tiempoLimiteMinutos ? parseInt(tiempoLimiteMinutos) : null,
-          ordenAleatorioPreguntas,
-          ordenAleatorioOpciones,
-          intentosPermitidos: parseInt(intentosPermitidos) || 1,
-          ventanaAbre: ventanaAbre ? new Date(ventanaAbre).toISOString() : null,
-          ventanaCierra: ventanaCierra ? new Date(ventanaCierra).toISOString() : null,
-          mostrarResultado,
-          modoSeguro,
-          maxInfracciones: parseInt(maxInfracciones) || 3,
-          publicado,
+          titulo: values.titulo,
+          descripcion: values.descripcion || null,
+          instrucciones: values.instrucciones || null,
+          permitirRetroceso: values.permitirRetroceso,
+          tiempoLimiteMinutos: values.tiempoLimiteMinutos
+            ? parseInt(values.tiempoLimiteMinutos)
+            : null,
+          ordenAleatorioPreguntas: values.ordenAleatorioPreguntas,
+          ordenAleatorioOpciones: values.ordenAleatorioOpciones,
+          intentosPermitidos: parseInt(values.intentosPermitidos) || 1,
+          ventanaAbre: values.ventanaAbre
+            ? new Date(values.ventanaAbre).toISOString()
+            : null,
+          ventanaCierra: values.ventanaCierra
+            ? new Date(values.ventanaCierra).toISOString()
+            : null,
+          mostrarResultado: values.mostrarResultado,
+          modoSeguro: values.modoSeguro,
+          maxInfracciones: parseInt(values.maxInfracciones) || 3,
+          publicado: values.publicado,
         }),
       });
 
@@ -101,200 +126,51 @@ function EditarQuizPageContent({ params }: { params: Promise<{ id: string }> }) 
   }
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando quiz...</div>;
+    return <div className='py-12 text-center text-muted'>Cargando quiz...</div>;
   }
 
   return (
-    <div className='flex-1 p-8 max-w-3xl mx-auto w-full'>
-      <div className='mb-6 flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>Configurar Quiz</h1>
-        <Link href='/docente' className='text-sm text-indigo-600 hover:underline'>
-          ← Volver al panel
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title='Configurar Quiz'
+        breadcrumbs={
+          <Link href='/docente' className='text-plum/60 transition-colors hover:text-plum'>
+            ← Volver al panel
+          </Link>
+        }
+      />
 
       {error && (
-        <div className='mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm'>
+        <Alert tone='error' className='mb-6'>
           {error}
-        </div>
+        </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6'>
-        <div>
-          <label className='block text-sm font-medium text-slate-700 mb-1'>Título *</label>
-          <input
-            type='text'
-            required
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
-          />
-        </div>
+      <form onSubmit={handleSubmit}>
+        <Card className='space-y-6 p-8'>
+          <QuizSettingsFields values={values} set={set} />
 
-        <div>
-          <label className='block text-sm font-medium text-slate-700 mb-1'>Descripción</label>
-          <textarea
-            rows={3}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-          />
-        </div>
-
-        <div>
-          <label className='block text-sm font-medium text-slate-700 mb-1'>Instrucciones</label>
-          <textarea
-            rows={3}
-            value={instrucciones}
-            onChange={(e) => setInstrucciones(e.target.value)}
-            className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-          />
-        </div>
-
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Tiempo límite (minutos)</label>
-            <input
-              type='number'
-              value={tiempoLimiteMinutos}
-              onChange={(e) => setTiempoLimiteMinutos(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-            />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Intentos permitidos</label>
-            <input
-              type='number'
-              min={1}
-              value={intentosPermitidos}
-              onChange={(e) => setIntentosPermitidos(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-            />
-          </div>
-        </div>
-
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Ventana abre</label>
-            <input
-              type='datetime-local'
-              value={ventanaAbre}
-              onChange={(e) => setVentanaAbre(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-            />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Ventana cierra</label>
-            <input
-              type='datetime-local'
-              value={ventanaCierra}
-              onChange={(e) => setVentanaCierra(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-            />
-          </div>
-        </div>
-
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Mostrar resultado</label>
-            <select
-              value={mostrarResultado}
-              onChange={(e) => setMostrarResultado(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
+          <div className='flex justify-end gap-4 border-t border-line pt-4'>
+            <Link
+              href='/docente'
+              className='inline-flex items-center justify-center rounded-btn border border-line-strong px-4 py-2.5 text-sm font-semibold text-plum transition-colors hover:bg-plum/5'
             >
-              <option value='NOTA'>Solo Nota</option>
-              <option value='NOTA_Y_RESPUESTAS'>Nota y Respuestas</option>
-              <option value='NADA'>Nada</option>
-            </select>
+              Cancelar
+            </Link>
+            <Button type='submit' disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
           </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700 mb-1'>Máx. infracciones modo seguro</label>
-            <input
-              type='number'
-              min={1}
-              value={maxInfracciones}
-              onChange={(e) => setMaxInfracciones(e.target.value)}
-              className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm'
-            />
-          </div>
-        </div>
-
-        <div className='space-y-3'>
-          <label className='flex items-center gap-2 text-sm text-slate-700'>
-            <input
-              type='checkbox'
-              checked={permitirRetroceso}
-              onChange={(e) => setPermitirRetroceso(e.target.checked)}
-              className='rounded border-slate-300 text-indigo-600'
-            />
-            Permitir retroceso entre preguntas
-          </label>
-
-          <label className='flex items-center gap-2 text-sm text-slate-700'>
-            <input
-              type='checkbox'
-              checked={ordenAleatorioPreguntas}
-              onChange={(e) => setOrdenAleatorioPreguntas(e.target.checked)}
-              className='rounded border-slate-300 text-indigo-600'
-            />
-            Orden aleatorio de preguntas
-          </label>
-
-          <label className='flex items-center gap-2 text-sm text-slate-700'>
-            <input
-              type='checkbox'
-              checked={ordenAleatorioOpciones}
-              onChange={(e) => setOrdenAleatorioOpciones(e.target.checked)}
-              className='rounded border-slate-300 text-indigo-600'
-            />
-            Orden aleatorio de opciones
-          </label>
-
-          <label className='flex items-center gap-2 text-sm text-slate-700'>
-            <input
-              type='checkbox'
-              checked={modoSeguro}
-              onChange={(e) => setModoSeguro(e.target.checked)}
-              className='rounded border-slate-300 text-indigo-600'
-            />
-            Activar modo seguro anti-copia (fullscreen / blur detection)
-          </label>
-
-          <label className='flex items-center gap-2 text-sm text-slate-700'>
-            <input
-              type='checkbox'
-              checked={publicado}
-              onChange={(e) => setPublicado(e.target.checked)}
-              className='rounded border-slate-300 text-indigo-600'
-            />
-            Publicar quiz (visible para estudiantes asignados)
-          </label>
-        </div>
-
-        <div className='flex justify-end gap-4 pt-4 border-t border-slate-100'>
-          <Link
-            href='/docente'
-            className='px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700'
-          >
-            Cancelar
-          </Link>
-          <button
-            type='submit'
-            disabled={saving}
-            className='px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition'
-          >
-            {saving ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
-        </div>
+        </Card>
       </form>
     </div>
   );
 }
-export default function EditarQuizPage( { params }: { params: Promise<{ id: string }> } ) {
+
+export default function EditarQuizPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-      <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando...</div>}><EditarQuizPageContent params={params} /></Suspense>
+    <Suspense fallback={<div className="py-12 text-center text-muted">Cargando...</div>}>
+      <EditarQuizPageContent params={params} />
+    </Suspense>
   );
 }

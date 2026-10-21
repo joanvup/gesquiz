@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense } from "react";
-
-
-
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { Users } from 'lucide-react';
+import { Alert, Badge, Button, Card, PageHeader } from '@/components/ui';
 
 interface Group {
   id: string;
@@ -17,6 +16,9 @@ interface Student {
   name: string;
   email: string;
 }
+
+const CHECKBOX =
+  'h-4 w-4 shrink-0 rounded border-line-strong text-magenta accent-magenta focus:ring-2 focus:ring-magenta/40';
 
 function AsignarQuizPageContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -102,103 +104,132 @@ function AsignarQuizPageContent({ params }: { params: Promise<{ id: string }> })
   }
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando asignaciones...</div>;
+    return <div className='py-12 text-center text-muted'>Cargando asignaciones...</div>;
   }
 
   return (
-    <div className='flex-1 p-8 max-w-3xl mx-auto w-full'>
-      <div className='mb-6 flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>Asignar Quiz</h1>
-        <Link href='/docente' className='text-sm text-indigo-600 hover:underline'>
-          ← Volver al panel
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title='Asignar Quiz'
+        subtitle='Selecciona los grupos y estudiantes que podrán realizar este quiz.'
+        breadcrumbs={
+          <Link href='/docente' className='text-plum/60 transition-colors hover:text-plum'>
+            ← Volver al panel
+          </Link>
+        }
+      />
 
       {error && (
-        <div className='mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm'>
+        <Alert tone='error' className='mb-6'>
           {error}
-        </div>
+        </Alert>
       )}
 
       {message && (
-        <div className='mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm'>
+        <Alert tone='success' className='mb-6'>
           {message}
-        </div>
+        </Alert>
       )}
 
-      <form onSubmit={handleSave} className='bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-8'>
-        <div>
-          <h3 className='text-lg font-semibold text-slate-800 mb-4'>Grupos Habilitados</h3>
-          {groups.length === 0 ? (
-            <p className='text-sm text-slate-500'>No hay grupos creados en el sistema.</p>
-          ) : (
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-              {groups.map((g) => (
-                <label
-                  key={g.id}
-                  className={'flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition ' + (selectedGroupIds.includes(g.id) ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-200 hover:border-slate-300')}
-                >
-                  <input
-                    type='checkbox'
-                    checked={selectedGroupIds.includes(g.id)}
-                    onChange={() => toggleGroup(g.id)}
-                    className='rounded border-slate-300 text-indigo-600'
-                  />
-                  <span className='text-sm font-medium text-slate-800'>{g.name}</span>
-                </label>
-              ))}
+      <form onSubmit={handleSave}>
+        <Card className='space-y-8 p-8'>
+          <div>
+            <div className='mb-4 flex flex-wrap items-center gap-2'>
+              <h3 className='text-lg font-semibold text-plum'>Grupos Habilitados</h3>
+              <Badge tone='lavender'>{selectedGroupIds.length} seleccionados</Badge>
             </div>
-          )}
-        </div>
+            {groups.length === 0 ? (
+              <p className='text-sm text-muted'>No hay grupos creados en el sistema.</p>
+            ) : (
+              <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                {groups.map((g) => {
+                  const checked = selectedGroupIds.includes(g.id);
+                  return (
+                    <label
+                      key={g.id}
+                      className={
+                        'flex cursor-pointer items-center gap-3 rounded-card border p-4 transition ' +
+                        (checked
+                          ? 'border-magenta bg-magenta/5'
+                          : 'border-line bg-white hover:border-line-strong')
+                      }
+                    >
+                      <input
+                        type='checkbox'
+                        checked={checked}
+                        onChange={() => toggleGroup(g.id)}
+                        className={CHECKBOX}
+                      />
+                      <span className='text-sm font-medium text-plum'>{g.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-        <div>
-          <h3 className='text-lg font-semibold text-slate-800 mb-4'>Estudiantes Específicos (Opcional)</h3>
-          {students.length === 0 ? (
-            <p className='text-sm text-slate-500'>No hay estudiantes en el sistema.</p>
-          ) : (
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-              {students.map((s) => (
-                <label
-                  key={s.id}
-                  className={'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ' + (selectedStudentIds.includes(s.id) ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-200 hover:border-slate-300')}
-                >
-                  <input
-                    type='checkbox'
-                    checked={selectedStudentIds.includes(s.id)}
-                    onChange={() => toggleStudent(s.id)}
-                    className='rounded border-slate-300 text-indigo-600'
-                  />
-                  <div>
-                    <div className='text-sm font-medium text-slate-800'>{s.name}</div>
-                    <div className='text-xs text-slate-500'>{s.email}</div>
-                  </div>
-                </label>
-              ))}
+          <div>
+            <div className='mb-4 flex flex-wrap items-center gap-2'>
+              <h3 className='text-lg font-semibold text-plum'>
+                Estudiantes Específicos (Opcional)
+              </h3>
+              <Badge tone='aqua'>{selectedStudentIds.length} seleccionados</Badge>
             </div>
-          )}
-        </div>
+            {students.length === 0 ? (
+              <p className='text-sm text-muted'>No hay estudiantes en el sistema.</p>
+            ) : (
+              <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                {students.map((s) => {
+                  const checked = selectedStudentIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className={
+                        'flex cursor-pointer items-center gap-3 rounded-card border p-3 transition ' +
+                        (checked
+                          ? 'border-magenta bg-magenta/5'
+                          : 'border-line bg-white hover:border-line-strong')
+                      }
+                    >
+                      <input
+                        type='checkbox'
+                        checked={checked}
+                        onChange={() => toggleStudent(s.id)}
+                        className={CHECKBOX}
+                      />
+                      <div>
+                        <div className='text-sm font-medium text-plum'>{s.name}</div>
+                        <div className='text-xs text-muted'>{s.email}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-        <div className='flex justify-end gap-4 pt-4 border-t border-slate-100'>
-          <Link
-            href='/docente'
-            className='px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700'
-          >
-            Volver
-          </Link>
-          <button
-            type='submit'
-            disabled={saving}
-            className='px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition'
-          >
-            {saving ? 'Guardando...' : 'Guardar Asignaciones'}
-          </button>
-        </div>
+          <div className='flex justify-end gap-4 border-t border-line pt-4'>
+            <Link
+              href='/docente'
+              className='inline-flex items-center justify-center rounded-btn border border-line-strong px-4 py-2.5 text-sm font-semibold text-plum transition-colors hover:bg-plum/5'
+            >
+              Volver
+            </Link>
+            <Button type='submit' disabled={saving}>
+              <Users size={16} strokeWidth={2} aria-hidden />
+              {saving ? 'Guardando...' : 'Guardar Asignaciones'}
+            </Button>
+          </div>
+        </Card>
       </form>
     </div>
   );
 }
-export default function AsignarQuizPage( { params }: { params: Promise<{ id: string }> } ) {
+
+export default function AsignarQuizPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-      <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando...</div>}><AsignarQuizPageContent params={params} /></Suspense>
+    <Suspense fallback={<div className="py-12 text-center text-muted">Cargando...</div>}>
+      <AsignarQuizPageContent params={params} />
+    </Suspense>
   );
 }

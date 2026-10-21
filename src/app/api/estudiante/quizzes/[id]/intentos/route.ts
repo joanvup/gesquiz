@@ -46,11 +46,6 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz no asignado al estudiante' }, { status: 403 });
     }
 
-    const existingAttempts = await db.attempt.findMany({
-      where: { quizId, studentId: user.id },
-      orderBy: { numeroAttempt: 'desc' },
-    });
-
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
 
@@ -127,10 +122,10 @@ export async function POST(
         },
       });
 
-      return { newAttempt, sessionToken, validAttemptsCount };
+      return { newAttempt, sessionToken };
     });
 
-    const { newAttempt, sessionToken, validAttemptsCount } = result;
+    const { newAttempt, sessionToken } = result;
 
     await db.auditEvent.create({
       data: {

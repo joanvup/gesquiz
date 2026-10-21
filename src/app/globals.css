@@ -1,28 +1,78 @@
 ﻿@import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Sistema de diseno de QuizColegio.
+ *
+ * Los tokens estan tomados del CSS real de Wayground
+ * (wayground.com/wf/style_1792407336628.css): "blackberry" -> plum, "oat" ->
+ * crema, "magenta" -> CTA, y la escala de acentos peach/aqua/lavender/yellow.
+ *
+ * Tailwind v4 es CSS-first: no hay tailwind.config.ts, todo se declara aqui
+ * dentro de `@theme`.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  /* --- Primarios --- */
+  --color-plum: #3b142a; /* blackberry: texto, marca y bordes */
+  --color-plum-deep: #631741; /* extremo del degradado de heroes */
+  --color-cream: #f3efda; /* oat: fondo de la aplicacion */
+  --color-cream-light: #faf7eb;
+  --color-magenta: #ff319f; /* CTA principal */
+  --color-magenta-hover: #ff76bf;
+  --color-magenta-dark: #ad106b;
+  --color-magenta-soft: #ff319f33;
+
+  /* --- Acentos por categoria --- */
+  --color-peach: #ffc48a;
+  --color-peach-500: #ff9429;
+  --color-peach-200: #ffd8b2;
+  --color-peach-100: #ffead6;
+  --color-orange: #ff7925;
+  --color-orange-300: #ffba8f;
+  --color-orange-800: #c24b00;
+  --color-aqua: #a3e5e0;
+  --color-aqua-500: #35bbb0;
+  --color-aqua-200: #c3eeeb;
+  --color-aqua-100: #dbf5f3;
+  --color-lavender: #c6b4e5;
+  --color-lavender-500: #a685e0;
+  --color-lavender-200: #dcd2ef;
+  --color-lavender-100: #efe9fc;
+  --color-lavender-900: #3a2956;
+  --color-yellow: #eceb75;
+  --color-yellow-600: #a2a51d;
+  --color-yellow-200: #f6f7bb;
+  --color-yellow-100: #fbfce4;
+  --color-indigo: #3c40b7;
+  --color-prussian: #00354a;
+
+  /* --- Neutros y superficies --- */
+  --color-line: #3b142a1a; /* blackberry-10: borde de tarjetas */
+  --color-line-strong: #3b142a33;
+  --color-muted: #6b5b66;
+
+  /* --- Radios (escala real de Wayground) --- */
+  --radius-btn: 4px; /* border-radius--tiny */
+  --radius-chip: 6px; /* border-radius--xxsm */
+  --radius-card: 12px; /* border-radius--rg */
+  --radius-lg: 20px; /* border-radius--lg */
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* --- Sombras (cifras reales del CSS de Wayground) --- */
+  --shadow-card: 0 4px 6px #0f172a0d, 0 10px 16px #0f172a1a;
+  --shadow-card-hover: 0 20px 24px -4px #262a3012, 0 8px 8px -4px #262a3008;
+  --shadow-pop: 0 2px 5px #0000000d;
+
+  /* --- Tipografia --- */
+  --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-plum);
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @media print {
@@ -36,4 +86,91 @@ body {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+/*
+ * Estilo del HTML importado desde Moodle (enunciados y opciones).
+ *
+ * Antes se usaba la clase `prose`, que no renderiza nada porque
+ * @tailwindcss/typography no esta instalado. Aqui se cubren los tags que
+ * permite el sanitizador (src/lib/moodle-xml/parser.ts).
+ */
+.moodle-content {
+  color: var(--color-plum);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.moodle-content p {
+  margin: 0 0 0.75rem;
+}
+
+.moodle-content p:last-child {
+  margin-bottom: 0;
+}
+
+.moodle-content b,
+.moodle-content strong {
+  font-weight: 700;
+}
+
+.moodle-content i,
+.moodle-content em {
+  font-style: italic;
+}
+
+.moodle-content ul,
+.moodle-content ol {
+  margin: 0 0 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.moodle-content ul {
+  list-style: disc;
+}
+
+.moodle-content ol {
+  list-style: decimal;
+}
+
+.moodle-content li {
+  margin-bottom: 0.25rem;
+}
+
+.moodle-content a {
+  color: var(--color-magenta-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.moodle-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-chip);
+  margin: 0.5rem 0;
+}
+
+.moodle-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.moodle-content th,
+.moodle-content td {
+  border: 1px solid var(--color-line);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.moodle-content th {
+  background: var(--color-cream);
+  font-weight: 600;
+}
+
+.moodle-content sub,
+.moodle-content sup {
+  font-size: 0.75em;
 }
