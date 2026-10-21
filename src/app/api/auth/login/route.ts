@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createSession } from "@/lib/auth";
+import { createSession, SESSION_MAX_AGE_MS } from "@/lib/auth";
 import { setCsrfToken } from "@/lib/csrf";
 import { checkRateLimit } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
@@ -51,7 +51,9 @@ export async function POST(request: Request) {
     await createSession(user.id);
 
     const csrfToken = crypto.randomBytes(24).toString("hex");
-    await setCsrfToken(csrfToken);
+    // La cookie CSRF expira junto con la sesion: si sobrevive mas que la
+    // sesion, al iniciar sesion de nuevo se reutiliza un token viejo.
+    await setCsrfToken(csrfToken, new Date(Date.now() + SESSION_MAX_AGE_MS));
 
     return NextResponse.json({
       success: true,

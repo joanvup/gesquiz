@@ -31,6 +31,12 @@ interface AnswerData {
   respuestaTexto?: string | null;
 }
 
+// Respuesta del estudiante pendiente de enviar al servidor.
+interface PendingAnswer {
+  respuestaJson: string | null;
+  respuestaTexto: string | null;
+}
+
 interface AttemptData {
   id: string;
   status: string;
@@ -39,6 +45,9 @@ interface AttemptData {
   score?: number | null;
   infractions: number;
   sessionTokenHash: string;
+  // Orden real en que se presentan las preguntas. Puede estar barajado, por
+  // lo que no coincide con el orden natural de quiz.questions.
+  questionOrderJson?: string | null;
   quiz: {
     id: string;
     titulo: string;
@@ -69,6 +78,9 @@ function PresentarQuizContent({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState<Question | null>(null);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  // Ids de las preguntas en el orden en que se presentan (pueden estar
+  // barajados). La navegacion lateral se indexa contra este orden.
+  const [questionOrder, setQuestionOrder] = useState<string[]>([]);
 
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [textValue, setTextValue] = useState("");
@@ -82,9 +94,13 @@ function PresentarQuizContent({
   const [targetIndexToNavigate, setTargetIndexToNavigate] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resultsData, setResultsData] = useState<AttemptData | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string>("");
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Respuestas modificadas que aun no se han confirmado con el servidor,
+  // indexadas por questionId. Se conservan al cambiar de pregunta para no
+  // perder lo que el debounce todavia no ha enviado.
+  const pendingAnswersRef = useRef<Map<string, PendingAnswer>>(new Map());
+  const [answeredQuestionIds, setAnsweredQuestionIds] = useState<string[]>([]);
   const [attemptSessionToken, setAttemptSessionToken] = useState<string>("");
   const [infractions, setInfractions] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -92,12 +108,6 @@ function PresentarQuizContent({
   const [infractionMessage, setInfractionMessage] = useState("");
   const fullscreenRequested = useRef(false);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    // Cargar token CSRF desde document.cookie al montar el componente
-    const token = getCsrfTokenFromCookie();
-    setCsrfToken(token);
-  }, []);
 
   // Generar/persistir token de sesión para el intento
   useEffect(() => {
@@ -124,7 +134,7 @@ function PresentarQuizContent({
         headers: {
           'Content-Type': 'application/json',
           'x-attempt-session': attemptSessionToken,
-          'X-CSRF-TOKEN': csrfToken,
+          'X-CSRF-TOKEN': getCsrfTokenFromCookie(),
         },
         body: JSON.stringify({ tipo, detalle }),
       });
@@ -236,7 +246,7 @@ function PresentarQuizContent({
           method: 'POST',
           headers: {
             'x-attempt-session': attemptSessionToken,
-            'X-CSRF-TOKEN': csrfToken,
+            'X-CSRF-TOKEN': getCsrfTokenFromCookie(),
           },
         });
       } catch (error) {
@@ -254,7 +264,7 @@ function PresentarQuizContent({
         clearInterval(heartbeatIntervalRef.current);
       }
     };
-  }, [attempt, attemptId, attemptSessionToken, csrfToken]);
+  }, [attempt, attemptId, attemptSessionToken]);
 
   const initializeAnswerState = (q: Question, ans: AnswerData | null) => {
     setSelectedOptions([]);
@@ -288,10 +298,73 @@ function PresentarQuizContent({
     }
   };
 
+  /**
+   * Envia una respuesta al servidor. El token CSRF se lee de la cookie en el
+   * momento de la peticion: /api/estudiante/intentos/[id]/respuestas lo exige
+   * y sin el header responde 403, dejando la respuesta sin guardar.
+   */
+  const sendAnswer = useCallback(
+    async (questionId: string, respuestaJson: string | null, respuestaTexto: string | null) => {
+      const res = await fetch(
+        `/api/estudiante/intentos/${attemptId}/respuestas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": getCsrfTokenFromCookie(),
+          },
+          body: JSON.stringify({
+            questionId,
+            respuestaJson,
+            respuestaTexto,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Error al guardar la respuesta");
+      }
+      return data;
+    },
+    [attemptId]
+  );
+
+  /**
+   * Envia todas las respuestas pendientes de forma inmediata. Se llama antes
+   * de cambiar de pregunta y antes de enviar el intento, para que ninguna
+   * respuesta se pierda por el debounce.
+   */
+  const flushPendingAnswers = useCallback(async () => {
+    if (pendingAnswersRef.current.size === 0) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const entries = Array.from(pendingAnswersRef.current.entries());
+    for (const [questionId, pending] of entries) {
+      try {
+        await sendAnswer(questionId, pending.respuestaJson, pending.respuestaTexto);
+        pendingAnswersRef.current.delete(questionId);
+        setAnsweredQuestionIds(prev =>
+          prev.includes(questionId) ? prev : [...prev, questionId]
+        );
+      } catch {
+        // Se mantiene pendiente: no se descarta la respuesta del estudiante.
+      }
+    }
+  }, [sendAnswer]);
+
   const loadAttemptAndQuestion = useCallback(
     async (targetIndex: number) => {
       setLoading(true);
       try {
+        // Antes de cambiar de pregunta se vacian las respuestas pendientes:
+        // el debounce de 400 ms se cancelaria y la respuesta anterior se
+        // perderia silenciosamente.
+        await flushPendingAnswers();
+
         const resAttempt = await fetch(`/api/estudiante/intentos/${attemptId}`);
         const dataAttempt = await resAttempt.json();
         if (dataAttempt.error) {
@@ -301,6 +374,31 @@ function PresentarQuizContent({
         }
         setAttempt(dataAttempt.attempt);
         setInfractions(dataAttempt.attempt.infractions || 0);
+
+        // El orden barajado vive en el intento; si no existe, se usa el
+        // orden natural de las preguntas del quiz.
+        let order: string[] = [];
+        try {
+          order = dataAttempt.attempt.questionOrderJson
+            ? JSON.parse(dataAttempt.attempt.questionOrderJson)
+            : [];
+        } catch {}
+        if (order.length === 0) {
+          order = (dataAttempt.attempt.quiz.questions || []).map(
+            (q: { id: string }) => q.id
+          );
+        }
+        setQuestionOrder(order);
+
+        // Las respuestas ya confirmadas por el servidor se usan para marcar
+        // la navegacion lateral como "respondida".
+        setAnsweredQuestionIds(
+          (dataAttempt.attempt.answers || [])
+            .filter((a: { respuestaJson?: string | null; respuestaTexto?: string | null }) =>
+              a.respuestaJson || a.respuestaTexto
+            )
+            .map((a: { questionId: string }) => a.questionId)
+        );
 
         if (dataAttempt.attempt.status !== "EN_CURSO") {
           setResultsData(dataAttempt.attempt);
@@ -335,13 +433,14 @@ function PresentarQuizContent({
         setLoading(false);
       }
     },
-    [attemptId, router]
+    [attemptId, router, flushPendingAnswers]
   );
 
   const handleAutoSubmitDueToExpiration = useCallback(async () => {
     try {
       const res = await fetch(`/api/estudiante/intentos/${attemptId}/enviar`, {
         method: "POST",
+        headers: { "X-CSRF-TOKEN": getCsrfTokenFromCookie() },
       });
       const data = await res.json();
       setResultsData(data);
@@ -373,37 +472,37 @@ function PresentarQuizContent({
   const triggerSave = useCallback(
     (newRespuestaJson: string | null, newRespuestaTexto: string | null) => {
       if (!question) return;
+
+      // La respuesta se registra como pendiente para que, si el debounce se
+      // cancela al cambiar de pregunta, se pueda reintentar antes de salir.
+      pendingAnswersRef.current.set(question.id, {
+        respuestaJson: newRespuestaJson,
+        respuestaTexto: newRespuestaTexto,
+      });
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
       setSavingStatus("guardando");
 
       saveTimeoutRef.current = setTimeout(async () => {
+        const pending = pendingAnswersRef.current.get(question.id);
+        if (!pending) return;
         try {
-          const res = await fetch(
-            `/api/estudiante/intentos/${attemptId}/respuestas`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                questionId: question.id,
-                respuestaJson: newRespuestaJson,
-                respuestaTexto: newRespuestaTexto,
-              }),
-            }
+          await sendAnswer(question.id, pending.respuestaJson, pending.respuestaTexto);
+          pendingAnswersRef.current.delete(question.id);
+          setAnsweredQuestionIds(prev =>
+            prev.includes(question.id) ? prev : [...prev, question.id]
           );
-          const data = await res.json();
-          if (data.success) {
-            setSavingStatus("guardado");
-            setTimeout(() => setSavingStatus(""), 2000);
-          } else {
-            setSavingStatus("error");
-          }
+          setSavingStatus("guardado");
+          setTimeout(() => setSavingStatus(""), 2000);
         } catch {
+          // La respuesta sigue pendiente: se reintentará al cambiar de
+          // pregunta o antes de enviar el intento.
           setSavingStatus("error");
         }
       }, 400);
     },
-    [attemptId, question]
+    [question, sendAnswer]
   );
 
   function handleOptionChange(optionId: string, isMulti: boolean) {
@@ -464,8 +563,13 @@ function PresentarQuizContent({
     }
     setSubmitting(true);
     try {
+      // Se envian primero las respuestas pendientes: /enviar califica con lo
+      // que hay en la base de datos, asi que deben estar guardadas antes.
+      await flushPendingAnswers();
+
       const res = await fetch(`/api/estudiante/intentos/${attemptId}/enviar`, {
         method: "POST",
+        headers: { "X-CSRF-TOKEN": getCsrfTokenFromCookie() },
       });
       const data = await res.json();
       if (data.success) {
@@ -791,9 +895,9 @@ function PresentarQuizContent({
             <div className="grid grid-cols-5 gap-2">
               {Array.from({ length: totalQuestions }).map((_, idx) => {
                 const isCurrent = idx === currentIndex;
-                const hasAnswer = attempt.answers.some(
-                  (a) => a.questionId === attempt.quiz.questions?.[idx]?.id && (a.respuestaJson || a.respuestaTexto)
-                );
+                // El indice corresponde al orden barajado, no a quiz.questions.
+                const questionId = questionOrder[idx];
+                const hasAnswer = answeredQuestionIds.includes(questionId);
 
                 return (
                   <button

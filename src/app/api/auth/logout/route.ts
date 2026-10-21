@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { destroySession } from "@/lib/auth";
-import { verifyCsrf } from "@/lib/csrf";
+import { clearCsrfToken, verifyCsrf } from "@/lib/csrf";
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +10,9 @@ export async function POST(request: Request) {
     }
 
     await destroySession();
+    // La cookie CSRF tambien se borra: si sobrevive a la sesion, al volver a
+    // iniciar sesion se reutilizaria un token que ya no corresponde.
+    await clearCsrfToken();
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error interno";

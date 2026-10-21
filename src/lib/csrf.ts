@@ -10,7 +10,14 @@ export async function getCsrfToken(): Promise<string> {
   return csrf;
 }
 
-export async function setCsrfToken(csrf: string) {
+/**
+ * Guarda el token CSRF en una cookie legible por el cliente.
+ *
+ * La cookie debe vivir al menos lo mismo que la cookie de sesion: si el
+ * navegador conserva la sesion pero descarta la cookie csrf, todos los POST
+ * devolvienen 403 y el estudiante no puede guardar sus respuestas.
+ */
+export async function setCsrfToken(csrf: string, expires?: Date) {
   const cookieStore = await cookies();
   cookieStore.set({
     name: "csrf",
@@ -19,6 +26,21 @@ export async function setCsrfToken(csrf: string) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
+    ...(expires ? { expires } : {}),
+  });
+}
+
+/** Elimina la cookie CSRF (al cerrar sesion). */
+export async function clearCsrfToken() {
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: "csrf",
+    value: "",
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
   });
 }
 
