@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getCsrfTokenFromCookie } from '@/lib/csrf-client';
+import { LogoutButton } from '@/components/LogoutButton';
 
 interface QuizItem {
   id: string;
@@ -56,8 +58,12 @@ export default function DocenteDashboard() {
   }
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': getCsrfTokenFromCookie() },
+    });
     router.push('/login');
+    router.refresh();
   }
 
   return (
@@ -74,12 +80,7 @@ export default function DocenteDashboard() {
           >
             + Crear Nuevo Quiz
           </Link>
-          <button
-            onClick={handleLogout}
-            className='px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition text-sm'
-          >
-            Cerrar Sesión
-          </button>
+          <LogoutButton />
         </div>
       </div>
 

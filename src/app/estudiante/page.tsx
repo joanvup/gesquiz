@@ -1,12 +1,13 @@
-import { getSessionUser, destroySession } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { getCsrfToken } from "@/lib/csrf";
 import { db } from "@/lib/db";
 import { gradeToPercentage } from "@/lib/scoring";
 import { Suspense } from "react";
 import Link from "next/link";
 import { unstable_noStore } from "next/cache";
 import { StartQuizButton } from "./StartQuizButton";
+import { LogoutButton } from "@/components/LogoutButton";
 
 async function EstudianteContent() {
   unstable_noStore();
@@ -16,12 +17,6 @@ async function EstudianteContent() {
   }
 
   const csrfToken = await getCsrfToken();
-
-  async function logoutAction() {
-    "use server";
-    await destroySession();
-    redirect("/login");
-  }
 
   const memberships = await db.groupMember.findMany({
     where: { userId: user.id },
@@ -65,15 +60,7 @@ async function EstudianteContent() {
           <h1 className="text-2xl font-bold text-slate-800">Panel del Estudiante</h1>
           <p className="text-slate-600">Estudiante: {user.name} ({user.email})</p>
         </div>
-        <form action={logoutAction}>
-          <input type="hidden" name="csrfToken" value={csrfToken} />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition text-sm"
-          >
-            Cerrar Sesión
-          </button>
-        </form>
+        <LogoutButton csrfToken={csrfToken} />
       </div>
 
       <div className="mb-6">
