@@ -7,7 +7,7 @@ test.describe('QuizColegio E2E Comprehensive Flows', () => {
     await page.fill('input[type="password"]', 'Docente123!');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/docente/);
-    await expect(page.locator('body')).toContainText('Panel Docente');
+    await expect(page.getByRole('heading', { name: 'Panel del Docente' })).toBeVisible();
   });
 
   test('4. API block back navigation when permitirRetroceso = false', async ({ request }) => {
@@ -27,5 +27,24 @@ test.describe('QuizColegio E2E Comprehensive Flows', () => {
     await page.fill('input[type="password"]', 'Estudiante123!');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/estudiante/);
+  });
+
+  test('6. Admin panel shows logout button and it ends the session', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[type="email"]', 'admin@quizcolegio.test');
+    await page.fill('input[type="password"]', 'Admin123!');
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/\/admin/);
+
+    // El boton de cerrar sesion debe estar presente en el panel admin.
+    const logoutBtn = page.getByRole('button', { name: /Cerrar Sesi/i });
+    await expect(logoutBtn).toBeVisible();
+
+    await logoutBtn.click();
+    await expect(page).toHaveURL(/\/login/);
+
+    // Con la sesion revocada, /admin ya no debe ser accesible.
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/login/);
   });
 });

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { getCsrfTokenFromCookie } from '@/lib/csrf-client';
 import { LogoutButton } from '@/components/LogoutButton';
 
 interface QuizItem {
@@ -23,7 +21,6 @@ export default function DocenteDashboard() {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/docente/quizzes')
@@ -55,15 +52,6 @@ export default function DocenteDashboard() {
     } catch {
       alert('Error de red');
     }
-  }
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: { 'X-CSRF-TOKEN': getCsrfTokenFromCookie() },
-    });
-    router.push('/login');
-    router.refresh();
   }
 
   return (

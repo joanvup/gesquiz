@@ -19,7 +19,10 @@ export function LogoutButton({ csrfToken }: { csrfToken?: string }) {
   async function handleLogout() {
     setLoading(true);
     try {
-      const token = csrfToken || getCsrfTokenFromCookie();
+      // La cookie 'csrf' es la fuente de verdad: verifyCsrf la compara con
+      // el header. Si el prop viene de un Server Component y no coincide
+      // (p. ej. porque la cookie no existe todavia), el logout daria 403.
+      const token = getCsrfTokenFromCookie() || csrfToken || '';
       await fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': token },
