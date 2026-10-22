@@ -4,25 +4,39 @@ import { cn } from "@/lib/cn";
 type Variant = "primary" | "secondary" | "ghost" | "plum" | "danger";
 type Size = "sm" | "md" | "lg";
 
-const VARIANTS: Record<Variant, string> = {
-  // Magenta plano, el CTA de Wayground.
-  primary:
-    "bg-magenta text-white hover:bg-magenta-hover focus-visible:ring-magenta/50",
-  // Transparente con borde plum: el boton secundario de Wayground.
-  secondary:
-    "bg-transparent text-plum border border-line-strong hover:bg-plum/5 focus-visible:ring-plum/30",
-  // Sin borde, para acciones terciarias.
-  ghost: "bg-transparent text-plum/70 hover:bg-plum/5 hover:text-plum",
-  // Degradado plum: para heroes y acciones de peso.
-  plum:
-    "bg-linear-to-r from-plum-deep to-plum text-cream hover:from-plum hover:to-plum focus-visible:ring-plum/40",
-  danger: "bg-orange-800 text-white hover:bg-orange focus-visible:ring-orange/50",
+/*
+ * Variantes inspiradas en wayground.com:
+ * - primary: CTA magenta plano (el principal)
+ * - secondary: Transparente con borde plum
+ * - ghost: Texto plum con hover
+ * - plum: Degradado plum para acciones de peso
+ * - danger: Naranja para acciones destructivas
+ */
+
+/* Los colores se definen via CSS variables en globals.css:
+   --color-plum, --color-magenta, --color-cream, etc.
+ * Por aquí usamos las clases de Tailwind que referencean esas variables.
+ */
+
+/* Sizes más generosos inspirados en wayground */
+const SIZES: Record<Size, string> = {
+  sm: "px-4 py-2 text-sm",        // un poco más ancho/alto que antes
+  md: "px-6 py-3 text-base",      // tamaño medio/grande
+  lg: "px-8 py-4 text-base",      // tamaño grande para CTA
 };
 
-const SIZES: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs gap-1.5",
-  md: "px-4 py-2.5 text-sm gap-2",
-  lg: "px-6 py-3 text-base gap-2",
+/* Variantes usando las variables CSS de wayground */
+const VARIANTS: Record<Variant, string> = {
+  primary:     /* CTA principal tipo wayground */
+    "bg-magenta text-white hover:bg-magenta/90 focus-visible:ring-magenta/30",
+  secondary:   /* Secundario con borde plum */
+    "bg-transparent text-plum border border-line-strong hover:bg-plum/5 focus-visible:ring-plum/30",
+  ghost:       /* Fantasma - texto plum */
+    "bg-transparent text-plum/70 hover:bg-plum/5 hover:text-plum",
+  plum:        /* Degradado plum para heroes */
+    "bg-linear-to-r from-plum-deep to-plum text-cream hover:from-plum hover:to-plum focus-visible:ring-plum/40",
+  danger:      /* Rojo para acciones destructivas */
+    "bg-orange-800 text-white hover:bg-orange-700 focus-visible:ring-orange/50",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
