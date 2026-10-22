@@ -1,5 +1,4 @@
-﻿"use client";
-
+﻿// No "use client" aquí. Es un Server Component.
 import { getSessionUser, destroySession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getOrCreateCsrfToken } from "@/lib/csrf";
