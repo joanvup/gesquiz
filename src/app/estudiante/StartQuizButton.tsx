@@ -2,8 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components";
+import { Play, ArrowRight } from "lucide-react";
 
-export function StartQuizButton({ quizId }: { quizId: string }) {
+interface StartQuizButtonProps {
+  quizId: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  label?: string;
+  fullWidth?: boolean;
+}
+
+export function StartQuizButton({
+  quizId,
+  size = "lg",
+  label = "Iniciar Quiz",
+  fullWidth = false,
+}: StartQuizButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -30,12 +44,52 @@ export function StartQuizButton({ quizId }: { quizId: string }) {
   }
 
   return (
-    <button
+    <Button
+      variant="play"
+      size={size}
+      isLoading={loading}
+      leftIcon={!loading && <Play className="w-6 h-6" />}
+      rightIcon={!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
+      className={`${fullWidth ? "w-full" : ""} group`}
       onClick={handleStart}
-      disabled={loading}
-      className="w-full text-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition disabled:opacity-50"
     >
-      {loading ? "Iniciando..." : "Iniciar Quiz"}
-    </button>
+      {loading ? "Preparando..." : label}
+    </Button>
+  );
+}
+
+export function ResumeQuizButton({ quizId, attemptId }: { quizId: string; attemptId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function handleResume() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/estudiante/intentos/${attemptId}`);
+      const data = await res.json();
+      if (data.attempt) {
+        const token = sessionStorage.getItem(`attempt_token_${attemptId}`);
+        if (token) {
+          // Re-use token
+        }
+        router.push(`/estudiante/quizzes/${quizId}/intentos/${attemptId}/presentar`);
+      }
+    } catch {
+      alert("Error de red");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button
+      variant="secondary"
+      size="md"
+      isLoading={loading}
+      leftIcon={<RotateCw className="w-5 h-5" />}
+      onClick={handleResume}
+    >
+      {loading ? "Cargando..." : "Continuar"}
+    </Button>
   );
 }

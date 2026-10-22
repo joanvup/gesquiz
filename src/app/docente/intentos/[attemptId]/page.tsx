@@ -4,6 +4,16 @@ import { Suspense } from 'react';
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Mascot, Badge, StatusBadge, Button } from '@/components';
+import {
+  RotateCcw,
+  Ban,
+  ClipboardCheck,
+  Clock,
+  Trophy,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 
 interface Question {
   id: string;
@@ -36,10 +46,7 @@ interface AuditEvent {
   ip?: string | null;
   userAgent?: string | null;
   createdAt: string;
-  user?: {
-    name: string;
-    email: string;
-  } | null;
+  user?: { name: string; email: string } | null;
 }
 
 interface AttemptDetail {
@@ -50,17 +57,8 @@ interface AttemptDetail {
   infractions: number;
   startedAt: string;
   submittedAt: string | null;
-  student: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  quiz: {
-    id: string;
-    titulo: string;
-    puntajeMaximo: number;
-    questions: Question[];
-  };
+  student: { id: string; name: string; email: string };
+  quiz: { id: string; titulo: string; puntajeMaximo: number; questions: Question[] };
   answers: AttemptAnswer[];
   events: AuditEvent[];
 }
@@ -177,108 +175,182 @@ function AttemptDetailContent({ params }: { params: Promise<{ attemptId: string 
   }
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando detalle del intento...</div>;
+    return (
+      <div className="flex-1 p-8 max-w-5xl mx-auto w-full">
+        <div className="text-center text-text-muted">
+          <Mascot expression="think" size="lg" />
+          <p className="mt-4">Cargando detalle del intento...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !attempt) {
     return (
-      <div className='p-8 max-w-4xl mx-auto'>
-        <div className='p-4 bg-red-50 text-red-700 rounded-lg mb-4'>{error || 'No encontrado'}</div>
-        <Link href='/docente' className='text-indigo-600 hover:underline'>Volver al panel</Link>
+      <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        <div className="p-4 bg-red-50 text-red-700 rounded-xl mb-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {error || 'No encontrado'}
+        </div>
+        <Link href='/docente' className='text-primary underline text-sm flex items-center w-max gap-1'>
+          ← Volver al panel
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className='flex-1 p-8 max-w-5xl mx-auto w-full'>
-      <div className='flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8'>
-        <div>
-          <div className='flex items-center gap-3 mb-1'>
-            <Link href={'/docente/quizzes/' + attempt.quiz.id + '/resultados'} className='text-indigo-600 hover:underline text-sm'>← Resultados</Link>
-          </div>
-          <h1 className='text-2xl font-bold text-slate-800'>Intento #{attempt.numeroAttempt} - {attempt.student.name}</h1>
-          <p className='text-slate-600 text-sm'>Quiz: {attempt.quiz.titulo} | Email: {attempt.student.email}</p>
+    <div className='flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full'>
+      {/* Header */}
+      <div className='mb-6 flex items-center justify-between'>
+        <div className='flex items-center gap-2 text-sm text-text-muted'>
+          <Link href={'/docente/quizzes/' + attempt.quiz.id + '/resultados'} className='hover:text-primary transition text-sm flex items-center'>
+            ← Resultados
+          </Link>
         </div>
         <div className='flex gap-3'>
-          <button
-            onClick={handleReopen}
-            disabled={actionLoading}
-            className='px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition text-sm'
-          >
-            Reabrir Intento
-          </button>
-          <button
-            onClick={handleAnnul}
-            disabled={actionLoading}
-            className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition text-sm'
-          >
+          <Button variant="secondary" size="sm" leftIcon={<RotateCcw className="w-4 h-4" />} onClick={handleReopen} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Reabrir Intento"}
+          </Button>
+          <Button variant="danger" size="sm" leftIcon={<Ban className="w-4 h-4" />} onClick={handleAnnul} disabled={actionLoading}>
             Anular Intento
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Estado</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>{attempt.status}</p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Nota Obtenida</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>{attempt.score ?? 0} / {attempt.quiz.puntajeMaximo}</p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Infracciones</span>
-          <p className='text-lg font-bold text-slate-800 mt-1'>{attempt.infractions}</p>
-        </div>
-        <div className='bg-white p-6 rounded-xl shadow-sm border border-slate-200'>
-          <span className='text-xs text-slate-500 font-medium uppercase'>Fecha Envío</span>
-          <p className='text-sm font-semibold text-slate-800 mt-1'>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'En curso'}</p>
+      {/* Title */}
+      <div className="mb-6 flex items-center gap-3">
+        <Mascot expression="think" size="md" />
+        <div>
+          <h1 className='text-2xl font-heading font-bold text-text'>
+            Intento #{attempt.numeroAttempt} — {attempt.student.name}
+          </h1>
+          <p className='text-text-muted text-sm flex items-center gap-2'>
+            <span>Quiz: {attempt.quiz.titulo}</span>
+            <span>·</span>
+            <span>{attempt.student.email}</span>
+          </p>
         </div>
       </div>
 
-      <div className='bg-white rounded-xl shadow-sm border border-slate-200 mb-8 p-6'>
-        <h3 className='text-lg font-semibold text-slate-800 mb-6'>Preguntas y Respuestas del Estudiante</h3>
+      {/* Stats */}
+      <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-8'>
+        <div className='bg-card rounded-2xl border border-border p-5 text-center'>
+          <ClipboardCheck className="w-6 h-6 mx-auto mb-2 text-primary" />
+          <span className='text-xs text-text-muted font-medium uppercase'>Estado</span>
+          <div className='mt-1'>
+            <StatusBadge status={attempt.status} />
+          </div>
+        </div>
+        <div className='bg-card rounded-2xl border border-border p-5 text-center'>
+          <Trophy className="w-6 h-6 mx-auto mb-2 text-amber-400" />
+          <span className='text-xs text-text-muted font-medium uppercase'>Puntaje</span>
+          <p className='font-heading font-bold text-2xl text-text mt-1'>
+            {attempt.score ?? 0} / {attempt.quiz.puntajeMaximo}
+          </p>
+        </div>
+        <div className='bg-card rounded-2xl border border-border p-5 text-center'>
+          <AlertCircle className="w-6 h-6 mx-auto mb-2 text-red-500" />
+          <span className='text-xs text-text-muted font-medium uppercase'>Infracciones</span>
+          <p className='font-heading font-bold text-2xl text-text mt-1'>{attempt.infractions}</p>
+        </div>
+        <div className='bg-card rounded-2xl border border-border p-5 text-center'>
+          <Clock className="w-6 h-6 mx-auto mb-2 text-primary" />
+          <span className='text-xs text-text-muted font-medium uppercase'>Envío</span>
+          <p className='text-sm font-semibold text-text mt-1'>
+            {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'En curso'}
+          </p>
+        </div>
+      </div>
+
+      {/* Questions */}
+      <div className='bg-card rounded-3xl shadow-lg border border-border mb-8 p-6'>
+        <h3 className='font-heading font-bold text-text text-lg mb-6 flex items-center gap-2'>
+          <ClipboardCheck className="w-5 h-5 text-primary" />
+          Preguntas y Respuestas del Estudiante
+        </h3>
         <div className='space-y-8'>
           {attempt.quiz.questions.map((q, idx) => {
             const ans = attempt.answers.find((a) => a.questionId === q.id);
-            return (
-              <div key={q.id} className='p-6 bg-slate-50 rounded-xl border border-slate-200'>
-                <div className='flex justify-between items-start mb-3'>
-                  <span className='font-semibold text-slate-700'>Pregunta {idx + 1} ({q.tipo})</span>
-                  <span className='text-xs font-medium px-2.5 py-1 bg-white rounded border border-slate-200 text-slate-600'>
-                    Puntaje: {ans?.puntuacion ?? 0} / {q.defaultGrade}
-                  </span>
-                </div>
-                <div className='text-slate-800 mb-4 prose max-w-none text-sm' dangerouslySetInnerHTML={{ __html: q.enunciadoHtml }} />
+            const isEssay = q.tipo === 'ESSAY';
+            const answerStatus = ans?.esCorrecta
+              ? 'success'
+              : ans?.esCorrecta === false
+              ? 'danger'
+              : 'pending';
 
-                <div className='bg-white p-4 rounded-lg border border-slate-200 mb-4 text-sm'>
-                  <span className='font-semibold text-slate-600 block mb-1'>Respuesta del estudiante:</span>
-                  <p className='text-slate-800'>
-                    {ans?.respuestaTexto || ans?.respuestaJson || <span className='text-slate-400 italic'>Sin respuesta</span>}
+            return (
+              <div
+                key={q.id}
+                className={`p-6 rounded-2xl border ${
+                  isEssay
+                    ? 'bg-indigo-50/30 border-indigo-200'
+                    : 'bg-surface-alt border-border'
+                }`}
+              >
+                <div className='flex justify-between items-start mb-3'>
+                  <div className='flex items-center gap-2'>
+                    <Badge variant="secondary">
+                      Pregunta {idx + 1}
+                    </Badge>
+                    <Badge variant="info">
+                      {q.tipo}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={answerStatus === 'success' ? 'success' : answerStatus === 'danger' ? 'danger' : 'secondary'}>
+                      {answerStatus === 'success' ? '✓ Correcta' : answerStatus === 'danger' ? '✗ Incorrecta' : 'Sin calificar'}
+                    </Badge>
+                    <span className='text-xs px-2.5 py-1 bg-card border border-border rounded-full'>
+                      {ans?.puntuacion ?? 0} / {q.defaultGrade}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className='text-text mb-4 prose max-w-none text-sm'
+                  dangerouslySetInnerHTML={{ __html: q.enunciadoHtml }}
+                />
+
+                {/* Respuesta del estudiante */}
+                <div className='bg-card border border-border rounded-xl p-4 text-sm mb-4'>
+                  <span className='font-semibold text-text-muted block mb-1'>
+                    Respuesta del estudiante:
+                  </span>
+                  <p className='text-text'>
+                    {ans?.respuestaTexto || ans?.respuestaJson || (
+                      <span className='text-text-muted italic'>Sin respuesta</span>
+                    )}
                   </p>
                 </div>
 
-                {q.tipo === 'ESSAY' && (
-                  <div className='bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex items-center gap-4'>
+                {/* Calificación de ESSAY */}
+                {isEssay && (
+                  <div className='bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-end gap-4'>
                     <div className='flex-1'>
-                      <label className='block text-xs font-semibold text-indigo-900 mb-1'>Calificación manual (0 a {q.defaultGrade}):</label>
+                      <label className='block text-xs font-semibold text-primary mb-1'>
+                        Calificación manual (0 a {q.defaultGrade}):
+                      </label>
                       <input
                         type='number'
                         step='0.1'
                         min='0'
                         max={q.defaultGrade}
                         value={essayScores[q.id] ?? ''}
-                        onChange={(e) => setEssayScores({ ...essayScores, [q.id]: parseFloat(e.target.value) })}
-                        className='w-full px-3 py-1.5 bg-white border border-indigo-200 rounded text-sm'
+                        onChange={(e) =>
+                          setEssayScores({ ...essayScores, [q.id]: parseFloat(e.target.value) })
+                        }
+                        className='w-full px-3 py-2 border-2 border-border rounded-xl text-base bg-card text-text focus:outline-none focus:border-primary transition-colors'
                       />
                     </div>
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
                       onClick={() => handleGradeEssay(q.id)}
                       disabled={actionLoading}
-                      className='mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded text-sm transition'
                     >
-                      Guardar Calificación
-                    </button>
+                      Guardar
+                    </Button>
                   </div>
                 )}
               </div>
@@ -287,25 +359,32 @@ function AttemptDetailContent({ params }: { params: Promise<{ attemptId: string 
         </div>
       </div>
 
-      <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
-        <h3 className='text-lg font-semibold text-slate-800 mb-6'>Línea de Tiempo de Auditoría (AuditEvent)</h3>
+      {/* Timeline */}
+      <div className='bg-card rounded-3xl shadow-lg border border-border p-6'>
+        <h3 className='font-heading font-bold text-text text-lg mb-6 flex items-center gap-2'>
+          <Clock className="w-5 h-5 text-primary" />
+          Línea de Tiempo de Auditoría
+        </h3>
         {attempt.events.length === 0 ? (
-          <p className='text-slate-500 text-sm'>No hay eventos de auditoría registrados.</p>
+          <p className='text-text-muted text-sm'>No hay eventos de auditoría registrados.</p>
         ) : (
           <div className='space-y-4'>
             {attempt.events.map((ev) => (
-              <div key={ev.id} className='flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm'>
-                <div className='w-32 flex-shrink-0 text-xs text-slate-500 font-mono'>
+              <div
+                key={ev.id}
+                className='flex items-start gap-4 p-4 bg-surface-alt rounded-xl border border-border text-sm'
+              >
+                <div className='w-36 flex-shrink-0 text-xs text-text-muted font-mono'>
                   {new Date(ev.createdAt).toLocaleString()}
                 </div>
                 <div className='flex-1'>
                   <div className='flex items-center gap-2 mb-1'>
-                    <span className='font-semibold text-slate-800 px-2 py-0.5 bg-slate-200 rounded text-xs'>{ev.tipo}</span>
-                    {ev.user && <span className='text-xs text-slate-600'>por {ev.user.name}</span>}
+                    <Badge variant="secondary">{ev.tipo}</Badge>
+                    {ev.user && <span className='text-xs text-text-muted'>por {ev.user.name}</span>}
                   </div>
-                  <p className='text-slate-700 text-xs'>{ev.detalle || 'Sin detalle'}</p>
+                  <p className='text-text-muted text-xs'>{ev.detalle || 'Sin detalle'}</p>
                   {(ev.ip || ev.userAgent) && (
-                    <div className='mt-2 text-[11px] text-slate-400 font-mono flex gap-4'>
+                    <div className='mt-2 text-[11px] text-text-muted font-mono flex flex-wrap gap-2'>
                       {ev.ip && <span>IP: {ev.ip}</span>}
                       {ev.userAgent && <span className='truncate max-w-md'>UA: {ev.userAgent}</span>}
                     </div>
@@ -322,7 +401,11 @@ function AttemptDetailContent({ params }: { params: Promise<{ attemptId: string 
 
 export default function AttemptDetailPage({ params }: { params: Promise<{ attemptId: string }> }) {
   return (
-    <Suspense fallback={<div className='p-8 text-center text-slate-500'>Cargando detalle...</div>}>
+    <Suspense fallback={
+      <div className='p-8 text-center'>
+        <Mascot expression="think" size="lg" />
+      </div>
+    }>
       <AttemptDetailContent params={params} />
     </Suspense>
   );

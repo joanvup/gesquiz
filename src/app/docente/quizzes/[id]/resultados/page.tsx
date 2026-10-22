@@ -3,6 +3,8 @@
 import { Suspense } from 'react';
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { Mascot, Button, StatusBadge, EmptyState } from '@/components';
+import { ChevronRight, Download, Trophy, AlertCircle, Eye } from 'lucide-react';
 
 interface AttemptItem {
   id: string;
@@ -51,94 +53,114 @@ function QuizResultadosContent({ params }: { params: Promise<{ id: string }> }) 
   }, [id]);
 
   if (loading) {
-    return <div className='p-8 text-center text-slate-500'>Cargando resultados...</div>;
+    return (
+      <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+        <div className="text-center text-text-muted">
+          <Mascot expression="think" size="lg" />
+          <p className="mt-4">Cargando resultados...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !quiz) {
     return (
-      <div className='p-8 max-w-4xl mx-auto'>
-        <div className='p-4 bg-red-50 text-red-700 rounded-lg mb-4'>{error || 'No encontrado'}</div>
-        <Link href='/docente' className='text-indigo-600 hover:underline'>Volver al panel</Link>
+      <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        <div className="p-4 bg-red-50 text-red-700 rounded-xl mb-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {error || 'No encontrado'}
+        </div>
+        <Link href='/docente' className='text-primary underline text-sm flex items-center w-max gap-1'>
+          ← Volver al panel
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className='flex-1 p-8 max-w-6xl mx-auto w-full'>
-      <div className='flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8'>
-        <div>
-          <div className='flex items-center gap-3 mb-1'>
-            <Link href='/docente' className='text-indigo-600 hover:underline text-sm'>← Panel</Link>
-            <span className='text-slate-300'>/</span>
-            <span className='text-slate-500 text-sm'>Resultados</span>
-          </div>
-          <h1 className='text-2xl font-bold text-slate-800'>{quiz.titulo}</h1>
-          <p className='text-slate-600 text-sm'>Puntaje Máximo: {quiz.puntajeMaximo} | Total Intentos: {quiz.attempts.length}</p>
+    <div className='flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full'>
+      {/* Header */}
+      <div className='mb-6 flex items-center justify-between'>
+        <div className='flex items-center gap-2 text-sm text-text-muted'>
+          <Link href='/docente' className='hover:text-primary transition'>Panel</Link>
+          <ChevronRight className="w-4 h-4" />
+          <span className="text-text">Resultados</span>
         </div>
-        <div className='flex gap-3'>
-          <a
-            href={'/api/docente/quizzes/' + id + '/resultados?format=csv'}
-            className='px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition text-sm flex items-center gap-2'
+        <Link href='#'>
+          <Button
+            variant="success"
+            size="md"
+            leftIcon={<Download className="w-4 h-4" />}
+            as="a"
           >
             Exportar a CSV
-          </a>
-        </div>
+          </Button>
+        </Link>
       </div>
 
-      <div className='bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden'>
-        <div className='p-6 border-b border-slate-100'>
-          <h3 className='font-semibold text-slate-800'>Intentos de Estudiantes</h3>
+      <div className='bg-card rounded-3xl shadow-lg border border-border p-6 md:p-8 mb-8'>
+        <h1 className='text-2xl font-heading font-bold text-text mb-2'>{quiz.titulo}</h1>
+        <p className='text-text-muted text-sm flex items-center gap-2'>
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Puntaje máximo: {quiz.puntajeMaximo}</span>
+          <span>·</span>
+          <span>Total Intentos: {quiz.attempts.length}</span>
+        </p>
+      </div>
+
+      {/* Attempts table */}
+      <div className='bg-card rounded-3xl shadow-lg border border-border overflow-hidden'>
+        <div className='p-6 border-b border-border'>
+          <h3 className='font-heading font-bold text-text text-lg'>
+            Intentos de Estudiantes
+          </h3>
         </div>
+
         {quiz.attempts.length === 0 ? (
-          <div className='p-12 text-center text-slate-500 text-sm'>No hay intentos registrados para este quiz.</div>
+          <EmptyState
+            title="No hay intentos registrados"
+            description="Los intentos de los estudiantes aparecerán aquí."
+            emoji="📊"
+            variant="search"
+          />
         ) : (
           <div className='overflow-x-auto'>
             <table className='w-full text-left border-collapse text-sm'>
               <thead>
-                <tr className='bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold'>
+                <tr className='bg-surface-alt border-b border-border text-text-muted font-semibold'>
                   <th className='p-4'>Estudiante</th>
                   <th className='p-4'>Email</th>
                   <th className='p-4'>Intento</th>
                   <th className='p-4'>Estado</th>
-                  <th className='p-4'>Nota / Máx</th>
+                  <th className='p-4'>Nota</th>
                   <th className='p-4'>Infracciones</th>
                   <th className='p-4'>Fecha Envío</th>
                   <th className='p-4 text-right'>Acciones</th>
                 </tr>
               </thead>
-              <tbody className='divide-y divide-slate-100'>
+              <tbody className='divide-y divide-border'>
                 {quiz.attempts.map((att) => (
-                  <tr key={att.id} className='hover:bg-slate-50'>
-                    <td className='p-4 font-medium text-slate-800'>{att.student.name}</td>
-                    <td className='p-4 text-slate-600'>{att.student.email}</td>
-                    <td className='p-4 text-slate-600'>#{att.numeroAttempt}</td>
+                  <tr key={att.id} className='hover:bg-surface-alt/50 transition'>
+                    <td className='p-4 font-semibold text-text'>{att.student.name}</td>
+                    <td className='p-4 text-text-muted'>{att.student.email}</td>
+                    <td className='p-4 text-text-muted'>#{att.numeroAttempt}</td>
                     <td className='p-4'>
-                      <span
-                        className={
-                          'px-2.5 py-0.5 rounded-full text-xs font-medium ' +
-                          (att.status === 'ENVIADO' || att.status === 'CALIFICADO'
-                            ? 'bg-green-100 text-green-800'
-                            : att.status === 'EN_CURSO'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800')
-                        }
-                      >
-                        {att.status}
-                      </span>
+                      <StatusBadge status={att.status} />
                     </td>
-                    <td className='p-4 font-semibold text-slate-800'>
+                    <td className='p-4 font-bold text-text'>
                       {att.score !== null ? att.score : '-'} / {quiz.puntajeMaximo}
                     </td>
-                    <td className='p-4 text-slate-600'>{att.infractions}</td>
-                    <td className='p-4 text-slate-500 text-xs'>
-                      {att.submittedAt ? new Date(att.submittedAt).toLocaleString() : 'En curso'}
+                    <td className='p-4 text-text-muted'>{att.infractions}</td>
+                    <td className='p-4 text-text-muted text-xs'>
+                      {att.submittedAt
+                        ? new Date(att.submittedAt).toLocaleString()
+                        : 'En curso'}
                     </td>
                     <td className='p-4 text-right'>
                       <Link
                         href={'/docente/intentos/' + att.id}
-                        className='px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded text-xs transition'
+                        className='px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-medium rounded-xl text-xs transition inline-flex items-center gap-1'
                       >
-                        Ver Detalle & Auditoría
+                        <Eye className="w-3 h-3" /> Ver Detalle
                       </Link>
                     </td>
                   </tr>
@@ -154,7 +176,11 @@ function QuizResultadosContent({ params }: { params: Promise<{ id: string }> }) 
 
 export default function QuizResultadosPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<div className='p-8 text-center text-slate-500'>Cargando resultados...</div>}>
+    <Suspense fallback={
+      <div className='p-8 text-center'>
+        <Mascot expression="think" size="lg" />
+      </div>
+    }>
       <QuizResultadosContent params={params} />
     </Suspense>
   );

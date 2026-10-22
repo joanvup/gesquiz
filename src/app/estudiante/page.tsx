@@ -1,10 +1,14 @@
-﻿import { getSessionUser, destroySession } from "@/lib/auth";
+﻿"use client";
+
+import { getSessionUser, destroySession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getOrCreateCsrfToken } from "@/lib/csrf";
 import { db } from "@/lib/db";
 import { Suspense } from "react";
 import Link from "next/link";
-import { StartQuizButton } from "./StartQuizButton";
+import { StartQuizButton, ResumeQuizButton } from "./StartQuizButton";
+import { Mascot, Badge, ProgressBar, EmptyState, Button } from "@/components";
+import { BookOpen, Trophy, Timer, CheckCircle2 } from "lucide-react";
 
 async function EstudianteContent() {
   const user = await getSessionUser();
@@ -57,34 +61,44 @@ async function EstudianteContent() {
   const now = new Date();
 
   return (
-    <div className="flex-1 p-8 max-w-5xl mx-auto w-full">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Panel del Estudiante</h1>
-          <p className="text-slate-600">Estudiante: {user.name} ({user.email})</p>
+    <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+      {/* Header */}
+      <div className="flex justify-between items-center bg-card p-6 rounded-3xl shadow-lg border border-border mb-8">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary/10 rounded-full p-2">
+            <Mascot expression="wave" size="md" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-heading font-bold text-text">Panel del Estudiante</h1>
+            <p className="text-text-muted">
+              ¡Hola, <span className="font-semibold text-primary">{user.name}</span>!
+              <span className="text-sm"> ({user.email})</span>
+            </p>
+          </div>
         </div>
         <form action={logoutAction}>
           <input type="hidden" name="csrfToken" value={csrfToken} />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition text-sm"
-          >
+          <Button variant="ghost" size="md" type="submit">
             Cerrar Sesión
-          </button>
+          </Button>
         </form>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">Tus Quizzes Asignados</h2>
+      {/* Section header */}
+      <div className="flex items-center gap-3 mb-6">
+        <BookOpen className="w-6 h-6 text-primary" />
+        <h2 className="text-xl font-heading font-bold text-text">Tus Quizzes Asignados</h2>
       </div>
 
       {quizzes.length === 0 ? (
-        <div className="bg-white p-12 rounded-xl shadow-sm border border-slate-200 text-center">
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">No hay quizzes asignados</h3>
-          <p className="text-slate-500 text-sm">Cuando tus docentes te asignen cuestionarios, aparecerán aquí.</p>
-        </div>
+        <EmptyState
+          title="No hay quizzes asignados"
+          description="Cuando tus docentes te asignen cuestionarios, aparecerán aquí."
+          emoji="📚"
+          variant="default"
+        />
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {quizzes.map(quiz => {
             const activeAttempt = quiz.attempts.find(a => a.status === 'EN_CURSO');
             const validAttempts = quiz.attempts.filter(a => a.status !== 'ANULADO');
@@ -93,77 +107,98 @@ async function EstudianteContent() {
 
             let windowOpen = true;
             if (quiz.ventanaAbre && now < new Date(quiz.ventanaAbre)) windowOpen = false;
-            if (quiz.ventanaCierra && now > new Date(quiz.ventanaCierra)) windowOpen = false;
+            if (quiz.ventanaCierra && now > new Date(quiz.ventanaCierre)) windowOpen = false;
 
             const latestAttempt = quiz.attempts[0];
+            const isCompleted = latestAttempt && (latestAttempt.status === 'CALIFICADO' || latestAttempt.status === 'ENVIADO' || latestAttempt.status === 'ANULADO');
 
             return (
-              <div key={quiz.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-slate-800 text-lg">{quiz.titulo}</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                      {quiz._count.questions} preguntas
-                    </span>
-                  </div>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-2">{quiz.descripcion || 'Sin descripción'}</p>
+              <div key={quiz.id} className="bg-card border border-border hover:shadow-xl hover:-translate-y-1 transition-all duration-200 rounded-3xl p-6 flex flex-col">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-heading font-bold text-text text-lg">{quiz.titulo}</h3>
+                  <Badge variant={quiz.publicado ? "success" : "warning"}>
+                    {quiz.publicado ? "Publicado" : "Borrador"}
+                  </Badge>
+                </div>
+                <p className="text-text-muted text-sm mb-4 line-clamp-2">
+                  {quiz.descripcion || 'Sin descripción'}
+                </p>
 
-                  <div className="space-y-1.5 text-xs text-slate-600 mb-6 bg-slate-50 p-4 rounded-lg">
-                    <div className="flex justify-between">
-                      <span>Tiempo límite:</span>
-                      <span className="font-medium">{quiz.tiempoLimiteMinutos ? `${quiz.tiempoLimiteMinutos} min` : 'Sin límite'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Intentos realizados:</span>
-                      <span className="font-medium">{attemptsCount} de {quiz.intentosPermitidos}</span>
-                    </div>
-                    {quiz.ventanaAbre && (
-                      <div className="flex justify-between">
-                        <span>Abre:</span>
-                        <span className="font-medium">{new Date(quiz.ventanaAbre).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {quiz.ventanaCierra && (
-                      <div className="flex justify-between">
-                        <span>Cierra:</span>
-                        <span className="font-medium">{new Date(quiz.ventanaCierra).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {latestAttempt && (
-                      <div className="flex justify-between pt-2 border-t border-slate-200">
-                        <span>Último estado:</span>
-                        <span className={`font-semibold ${latestAttempt.status === 'CALIFICADO' ? 'text-green-600' : latestAttempt.status === 'EN_CURSO' ? 'text-amber-600' : 'text-slate-700'}`}>
-                          {latestAttempt.status} {latestAttempt.score !== null ? `(${latestAttempt.score}/${quiz.puntajeMaximo})` : ''}
-                        </span>
-                      </div>
-                    )}
+                {/* Stats */}
+                <div className="space-y-2 text-sm text-text-muted mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <BookOpen className="w-4 h-4" /> Preguntas
+                    </span>
+                    <span className="font-semibold text-text">{quiz._count.questions}</span>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Trophy className="w-4 h-4" /> Puntaje máximo
+                    </span>
+                    <span className="font-semibold text-text">{quiz.puntajeMaximo}</span>
+                  </div>
+                  {quiz.tiempoLimiteMinutos && (
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Timer className="w-4 h-4" /> Tiempo límite
+                      </span>
+                      <span className="font-semibold text-text">{quiz.tiempoLimiteMinutos} min</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                {/* Estado del intento */}
+                {activeAttempt && (
+                  <Badge variant="warning" className="mb-2 justify-center">
+                    Intento en curso
+                  </Badge>
+                )}
+                {latestAttempt && (
+                  <div className="text-xs text-text-muted mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Último estado:{" "}
+                    <span className={`font-medium ${
+                      latestAttempt.status === 'CALIFICADO' ? 'text-green-600' : 'text-amber-600'
+                    }`}>
+                      {latestAttempt.status}
+                    </span>
+                    {latestAttempt.score !== null && (
+                      <span className="text-primary font-bold">
+                        ({latestAttempt.score}/{quiz.puntajeMaximo})
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Intentos */}
+                <ProgressBar
+                  value={attemptsCount}
+                  max={quiz.intentosPermitidos}
+                  label={`Intentos: ${attemptsCount}/${quiz.intentosPermitidos}`}
+                  color="gradient"
+                  animated
+                  showValue
+                  className="mt-auto mb-4"
+                />
+
+                {/* Acción */}
+                <div className="mt-2">
                   {activeAttempt ? (
-                    <Link
-                      href={`/estudiante/quizzes/${quiz.id}/intentos/${activeAttempt.id}/presentar`}
-                      className="w-full text-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm transition"
-                    >
-                      Continuar Intento en Curso
-                    </Link>
+                    <ResumeQuizButton quizId={quiz.id} attemptId={activeAttempt.id} />
                   ) : canAttempt && windowOpen ? (
-                    <StartQuizButton quizId={quiz.id} />
-                  ) : latestAttempt && (latestAttempt.status === 'CALIFICADO' || latestAttempt.status === 'ENVIADO') ? (
-                    <Link
-                      href={`/estudiante/quizzes/${quiz.id}/intentos/${latestAttempt.id}/presentar`}
-                      className="w-full text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition"
-                    >
-                      Ver Resultados
+                    <StartQuizButton quizId={quiz.id} fullWidth />
+                  ) : isCompleted ? (
+                    <Link href={`/estudiante/quizzes/${quiz.id}/intentos/${latestAttempt.id}/presentar`}>
+                      <Button variant="secondary" size="lg" className="w-full">
+                        Ver Resultados
+                      </Button>
                     </Link>
                   ) : (
-                    <button
-                      disabled
-                      className="w-full px-4 py-2 bg-slate-100 text-slate-400 font-medium rounded-lg text-sm cursor-not-allowed"
-                    >
+                    <Button variant="secondary" size="lg" className="w-full" disabled>
                       {!windowOpen ? 'Fuera de ventana de tiempo' : 'Intentos agotados'}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -177,7 +212,7 @@ async function EstudianteContent() {
 
 export default function EstudianteDashboard() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando quizzes...</div>}>
+    <Suspense fallback={<div className="p-8 text-center"><Mascot expression="happy" size="lg" /> <p className="text-text-muted mt-4">Cargando quizzes...</p></div>}>
       <EstudianteContent />
     </Suspense>
   );

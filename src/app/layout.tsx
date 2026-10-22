@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Baloo_2, Nunito } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +13,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baloo2 = Baloo_2({
+  variable: "--font-baloo2",
+  subsets: ["latin"],
+});
+
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "QuizColegio — Sistema de Quizzes",
-  description: "Plataforma de gestión y aplicación de quizzes escolares",
+  title: "QuizColegio — Sistema de Quizzes Escolares",
+  description: "Plataforma de gestión y aplicación de quizzes para instituciones educativas. Importa desde Moodle XML, modo seguro y gamificación.",
+  icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
 export default function RootLayout({
@@ -25,9 +37,9 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${baloo2.variable} ${nunito.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="min-h-screen flex flex-col bg-surface text-text font-body overflow-x-hidden">
         {children}
       </body>
     </html>
